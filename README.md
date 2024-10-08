@@ -49,9 +49,11 @@ In the `frontend` directory, create or modify the `.env` file, setting the `VITE
 
 为了跨设备访问，请将设备连接到BUPT-Portal，ip查找方法参考下文。
 
+
 ```bash
+// 在frontend文件夹中创建一个名为.env的文件，填入下述内容
 VITE_HOST=your-local-ip-address  # Replace this with your actual IP address
-VITE_API_PORT=8081               # API server port
+VITE_API_PORT=8081               # API server port 这个不用修改
 ```
 
 To find your local IP address, you can use:（先连接到校园网Portal，执行下面的命令，找到命令行ip中以10.129开头的IP）
@@ -66,6 +68,7 @@ Ensure that your phone or other devices are connected to the same local network 
 In the `backend` folder, create a `.env` file using the template below, replacing the values with your own configuration if necessary:
 
 ```bash
+// 在backend文件夹中创建一个名为.env的文件，填入下述内容
 JWT_SECRET_KEY=kjf9Kf!a7XzL3P@eG2laj9834JLKJfs!Fjlkjlskdf9234lkj // jwt密钥，替换为任意复杂随机字母数字符号串
 HOST=10.129.227.1 // 替换为与上面相同的IP
 DB_HOST=localhost 
