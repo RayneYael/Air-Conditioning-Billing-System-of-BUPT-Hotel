@@ -1,0 +1,72 @@
+@keyframes snow {
+    0% {
+        transform: translateY(-10px);
+    }
+
+    100% {
+        transform: translateY(100vh);
+        /* 雪花从顶部飘到底部 */
+    }
+}
+
+.snowflake {
+    position: absolute;
+    /* 确保雪花在父容器中绝对定位 */
+    top: -10px;
+    /* 从容器顶部开始 */
+    width: 10px;
+    height: 10px;
+    background-color: white;
+    border-radius: 50%;
+    opacity: 0.8;
+    pointer-events: none;
+    animation: snow linear infinite;
+}
+
+
+.snowflake:nth-child(odd) {
+    animation-duration: 6s;
+}
+
+.snowflake:nth-child(even) {
+    animation-duration: 4s;
+}
+
+
+/* 热浪 */
+@keyframes wave {
+    0% {
+      transform: translateX(-100%) rotate(5deg); /* 旋转一定角度 */
+    }
+    50% {
+      transform: translateX(0) rotate(0); /* 中间是直线 */
+    }
+    100% {
+      transform: translateX(100%) rotate(-5deg); /* 旋转反方向的角度 */
+    }
+  }
+  
+  /* 普通制热模式下的发散线条 */
+  .heat-wave-line-normal {
+    position: absolute;
+    width: 90%;
+    height: 8px;
+    background: linear-gradient(to right, rgba(255, 150, 50, 0.6), rgba(255, 69, 0, 0.6), rgba(255, 150, 50, 0.6));
+    border-radius: 60%; /* 弧形边缘 */
+    transform: rotate(3deg); /* 添加初始倾斜角度 */
+    animation: wave 4s infinite ease-in-out; /* 动画稍慢 */
+    opacity: 0.7;
+  }
+  
+  /* 强效制热模式下的发散线条 */
+  .heat-wave-line-strong {
+    position: absolute;
+    width: 90%;
+    height: 12px; /* 加粗线条 */
+    background: linear-gradient(to right, rgba(255, 150, 50, 0.6), rgba(255, 69, 0, 0.6), rgba(255, 150, 50, 0.6));
+    border-radius: 60%; /* 弧形边缘 */
+    transform: rotate(8deg); /* 添加初始倾斜角度 */
+    animation: wave 3s infinite ease-in-out; /* 更快的动画 */
+    opacity: 1;
+  }
+  

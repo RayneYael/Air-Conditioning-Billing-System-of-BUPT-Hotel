@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { message, Switch, Slider, Select, Card, Row, Col } from 'antd'; // 使用 Ant Design 的组件
 import { PoweroffOutlined } from '@ant-design/icons'; // 添加一个开关图标
 import axios from 'axios';
+import "../App.css"
 
 const { Option } = Select;
 const Host = import.meta.env.VITE_HOST;
@@ -13,6 +14,8 @@ const ControlPanelPage = () => {
   const [windSpeed, setWindSpeed] = useState('low'); // 风速初始为低（节能模式）
   const [mode, setMode] = useState('energySaving'); // 运行模式初始为节能模式
   const [coolingHeatingMode, setCoolingHeatingMode] = useState('cooling'); // 制冷或制热模式
+
+  const snowflakeContainer = useRef(null);  // 用于获取雪花的容器引用
 
   const id = localStorage.getItem('roomId');
   // 页面加载时从数据库获取当前的设置
@@ -31,6 +34,37 @@ const ControlPanelPage = () => {
         console.error(error);
       });
   }, []);
+
+  // 动态生成雪花
+  useEffect(() => {
+    if (isOn && coolingHeatingMode === 'cooling') {
+      const createSnowflakes = () => {
+        let snowflakeCount = 20; // 默认雪花数量
+
+        // 如果当前模式是强效制冷，增加雪花数量
+        if (mode === 'strongCooling') {
+          snowflakeCount = 50; // 增加雪花数量
+        }
+
+        const container = snowflakeContainer.current;
+        if (container) {
+          // 清除现有雪花
+          container.innerHTML = '';
+          for (let i = 0; i < snowflakeCount; i++) {
+            const snowflake = document.createElement('div');
+            snowflake.className = 'snowflake';
+            snowflake.style.left = `${Math.random() * 100}%`;
+            snowflake.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            container.appendChild(snowflake);
+          }
+        }
+      };
+      createSnowflakes();
+    } else if (snowflakeContainer.current) {
+      // 如果是制热模式或空调关闭，清除所有雪花
+      snowflakeContainer.current.innerHTML = '';
+    }
+  }, [isOn, coolingHeatingMode, mode]);
 
   // 实时更新数据库中的设置
   const updateSettings = (newSettings) => {
@@ -91,13 +125,21 @@ const ControlPanelPage = () => {
   // 风速调节
   const handleWindSpeedChange = (value) => {
     setWindSpeed(value);
-    const newSettings = {
+    let newSettings = {
       windSpeed: value,
       // mode: 'custom', 
       // isOn, 
       // temperature, 
       // coolingHeatingMode 
     };
+
+    // 如果当前模式是强效制冷或强效加热，切换为自定义模式
+    if ((mode === 'strongCooling' || mode === 'forcedHeating') && value == 'low') {
+      setMode('custom'); // 切换为自定义模式
+      newSettings.mode = 'custom';
+    }
+
+    setWindSpeed(value);
     updateSettings(newSettings);
   };
 
@@ -136,18 +178,92 @@ const ControlPanelPage = () => {
   // 设置制冷或制热模式
   const handleCoolingHeatingChange = (value) => {
     setCoolingHeatingMode(value);
-    const newSettings = {
+    let newSettings = {
       coolingHeatingMode: value,
       // isOn, 
       // temperature, 
       // windSpeed, 
       // mode 
     };
+
+    // 如果当前模式是强效制冷或强效加热，切换模式为自定义
+    if (mode === 'strongCooling' && value === 'heating') {
+      setMode('custom'); // 切换为自定义模式
+      newSettings.mode = 'custom';
+    } else if (mode === 'forcedHeating' && value === 'cooling') {
+      setMode('custom'); // 切换为自定义模式
+      newSettings.mode = 'custom';
+    }
+
     updateSettings(newSettings);
   };
 
+  // 根据空调状态（开/关、制冷/制热）动态改变背景颜色
+  const getBackgroundStyle = () => {
+    if (!isOn) {
+      return {
+        background: 'linear-gradient(to right, #e0e0e0, #cfcfcf)'
+      };
+    } else if (coolingHeatingMode === 'heating') {
+      return {
+        background: 'linear-gradient(to right, #ff7e5f, #feb47b)',
+        transition: 'background 1.5s ease-in-out'
+      };
+    } else {
+      return {
+        background: 'linear-gradient(to right, #e0eafc, #cfdef3)',
+        transition: 'background 1.5s ease-in-out'
+      };
+    }
+  };
+
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
+
+      {/* 雪花容器 - 仅在制冷模式下且空调开启时显示 */}
+      {isOn && coolingHeatingMode === 'cooling' && (
+        <div ref={snowflakeContainer} style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 1,
+          pointerEvents: 'none',
+          overflow: 'hidden'
+        }}>
+          {/* 雪花将被动态插入到这里 */}
+        </div>
+      )}
+
+
+      {/* 普通制热模式下的热浪线条 */}
+      {isOn && coolingHeatingMode === 'heating' && mode !== 'forcedHeating' && (
+        <>
+          <div className="heat-wave-line-normal" style={{ top: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-normal" style={{ top: '30px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-normal" style={{ top: '40px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-normal" style={{ bottom: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-normal" style={{ bottom: '30px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-normal" style={{ bottom: '40px', zIndex: 1, pointerEvents: 'none' }}></div>
+        </>
+      )}
+
+      {/* 强效制热模式下的热浪线条 */}
+      {isOn && coolingHeatingMode === 'heating' && mode === 'forcedHeating' && (
+        <>
+          <div className="heat-wave-line-strong" style={{ top: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-strong" style={{ top: '40px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-strong" style={{ top: '60px', zIndex: 1, pointerEvents: 'none' }}></div>
+
+          <div className="heat-wave-line-strong" style={{ bottom: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-strong" style={{ bottom: '40px', zIndex: 1, pointerEvents: 'none' }}></div>
+          <div className="heat-wave-line-strong" style={{ bottom: '60px', zIndex: 1, pointerEvents: 'none' }}></div>
+         
+        </>
+      )}
+
       {/* 装饰图形 */}
       <div style={{
         position: 'absolute',
@@ -162,11 +278,26 @@ const ControlPanelPage = () => {
       }}>
       </div>
 
+      {/* 装饰图形 */}
+      <div style={{
+        position: 'absolute',
+        top: '75%',
+        left: '85%',
+        width: '100px',
+        height: '100px',
+        backgroundColor: '#1890ff',
+        borderRadius: '50%',
+        opacity: 0.2, // 让装饰图形不至于太抢眼
+        zIndex: 1, // 确保装饰图形在背景层，UI在其上
+      }}>
+      </div>
+
 
       <Row justify="center" align="middle"
         style={{
           height: '100vh',
-          background: 'linear-gradient(to right, #e0eafc, #cfdef3)',
+          ...getBackgroundStyle(), // 根据制冷/制热模式动态切换背景颜色
+          position: 'relative',
         }}>
         <Col xs={24} sm={20} md={16} lg={12} xl={10}>
           <Card
