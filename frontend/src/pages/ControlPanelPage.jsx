@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { message, Switch, Slider, Select, Card, Row, Col } from 'antd'; // 使用 Ant Design 的组件
 import { PoweroffOutlined } from '@ant-design/icons'; // 添加一个开关图标
-import axios from 'axios'; 
+import axios from 'axios';
 
 const { Option } = Select;
 const Host = import.meta.env.VITE_HOST;
@@ -13,11 +13,10 @@ const ControlPanelPage = () => {
   const [windSpeed, setWindSpeed] = useState('low'); // 风速初始为低（节能模式）
   const [mode, setMode] = useState('energySaving'); // 运行模式初始为节能模式
   const [coolingHeatingMode, setCoolingHeatingMode] = useState('cooling'); // 制冷或制热模式
-  
+
   const id = localStorage.getItem('roomId');
-   // 页面加载时从数据库获取当前的设置
-   useEffect(() => {
-    
+  // 页面加载时从数据库获取当前的设置
+  useEffect(() => {
     axios.get(`http://${Host}:${Port}/api/controlPanelSettings/` + id)
       .then(response => {
         const settings = response.data;
@@ -55,7 +54,7 @@ const ControlPanelPage = () => {
   // 开关控制，开机时默认切换到节能模式
   const handleSwitch = (checked) => {
     setIsOn(checked);
-    const newSettings = { 
+    const newSettings = {
       isOn: checked,
       mode: 'energySaving',
       temperature: modeSettings.energySaving.temperature,
@@ -71,24 +70,29 @@ const ControlPanelPage = () => {
     updateSettings(newSettings); // 实时更新数据库
   };
 
-  // 温度调节
+
+  // 温度调节：只更新 UI，不更新数据库
   const handleTemperatureChange = (value) => {
-    setTemperature(value);
-    const newSettings = { 
-      temperature: value, 
+    setTemperature(value);  // 实时更新 UI 显示温度
+  };
+
+  // 用户停止滑动后更新数据库
+  const handleTemperatureAfterChange = (value) => {
+    // 当用户停止滑动时才更新数据库
+    updateSettings({
+      temperature: value,
       // mode: 'custom', 
       // isOn, 
       // windSpeed, 
       // coolingHeatingMode
-    };
-    updateSettings(newSettings);
+    });
   };
 
   // 风速调节
   const handleWindSpeedChange = (value) => {
     setWindSpeed(value);
-    const newSettings = { 
-      windSpeed: value, 
+    const newSettings = {
+      windSpeed: value,
       // mode: 'custom', 
       // isOn, 
       // temperature, 
@@ -98,42 +102,42 @@ const ControlPanelPage = () => {
   };
 
   // 模式选择时，自动设置对应的温度和风速
-const handleModeChange = (value) => {
-  setMode(value); // 更新当前模式
+  const handleModeChange = (value) => {
+    setMode(value); // 更新当前模式
 
-  // 初始化设置对象
-  let newSettings = { 
-    mode: value, 
-    // temperature: modeSettings[value].temperature, 
-    // windSpeed: modeSettings[value].windSpeed, 
-    // isOn, 
-    // coolingHeatingMode 
+    // 初始化设置对象
+    let newSettings = {
+      mode: value,
+      // temperature: modeSettings[value].temperature, 
+      // windSpeed: modeSettings[value].windSpeed, 
+      // isOn, 
+      // coolingHeatingMode 
+    };
+
+    if (value !== 'custom') {
+      const settings = modeSettings[value]; // 获取该模式下的预设值
+      setTemperature(settings.temperature);
+      setWindSpeed(settings.windSpeed);
+    }
+
+    // 根据模式自动切换制冷/制热
+    if (value === 'strongCooling') {
+      setCoolingHeatingMode('cooling'); // 切换到制冷模式
+      // newSettings.coolingHeatingMode = 'cooling'; // 更新 coolingHeatingMode 到 newSettings
+    } else if (value === 'forcedHeating') {
+      setCoolingHeatingMode('heating'); // 切换到制热模式
+      // newSettings.coolingHeatingMode = 'heating'; // 更新 coolingHeatingMode 到 newSettings
+    }
+
+    // 更新设置并同步到数据库
+    updateSettings(newSettings);
   };
-
-  if (value !== 'custom') {
-    const settings = modeSettings[value]; // 获取该模式下的预设值
-    setTemperature(settings.temperature);
-    setWindSpeed(settings.windSpeed);
-  }
-
-  // 根据模式自动切换制冷/制热
-  if (value === 'strongCooling') {
-    setCoolingHeatingMode('cooling'); // 切换到制冷模式
-    // newSettings.coolingHeatingMode = 'cooling'; // 更新 coolingHeatingMode 到 newSettings
-  } else if (value === 'forcedHeating') {
-    setCoolingHeatingMode('heating'); // 切换到制热模式
-    // newSettings.coolingHeatingMode = 'heating'; // 更新 coolingHeatingMode 到 newSettings
-  }
-
-  // 更新设置并同步到数据库
-  updateSettings(newSettings);
-};
 
   // 设置制冷或制热模式
   const handleCoolingHeatingChange = (value) => {
     setCoolingHeatingMode(value);
-    const newSettings = { 
-      coolingHeatingMode: value, 
+    const newSettings = {
+      coolingHeatingMode: value,
       // isOn, 
       // temperature, 
       // windSpeed, 
@@ -143,97 +147,131 @@ const handleModeChange = (value) => {
   };
 
   return (
-    <Row justify="center" align="middle" style={{ height: '100vh', backgroundColor: '#f0f2f5' }}>
-      <Col xs={24} sm={20} md={16} lg={12} xl={10}>
-        <Card
-          title="空调控制面板"
-          bordered={false}
-          style={{ width: '100%', backgroundColor: 'white', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' }}
-        >
-          {/* 开关控制 */}
-          <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
-            <Col>
-              <span className="mr-2 text-lg">空调开关:</span>
-            </Col>
-            <Col>
-              <Switch
-                checkedChildren="开"
-                unCheckedChildren="关"
-                checked={isOn}
-                onChange={handleSwitch}
-                style={{ width: '80px', backgroundColor: !isOn ? '#1890ff' : '#f5222d' }}
-                icon={<PoweroffOutlined />}
-              />
-            </Col>
-          </Row>
+    <div style={{ position: 'relative' }}>
+      {/* 装饰图形 */}
+      <div style={{
+        position: 'absolute',
+        top: '10%',
+        left: '5%',
+        width: '100px',
+        height: '100px',
+        backgroundColor: '#1890ff',
+        borderRadius: '50%',
+        opacity: 0.2, // 让装饰图形不至于太抢眼
+        zIndex: 1, // 确保装饰图形在背景层，UI在其上
+      }}>
+      </div>
 
-          {/* 制冷/制热模式选择 */}
-          {isOn && (
-            <>
+
+      <Row justify="center" align="middle"
+        style={{
+          height: '100vh',
+          background: 'linear-gradient(to right, #e0eafc, #cfdef3)',
+        }}>
+        <Col xs={24} sm={20} md={16} lg={12} xl={10}>
+          <Card
+            title="空调控制面板"
+            bordered={false}
+            style={{
+              width: '100%',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)', // 白色半透明背景，保持UI清晰
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', // 添加阴影增强层次感
+              borderRadius: '15px', // 让卡片有圆角效果，增加柔和感
+              padding: '20px', // 让内容有更多内边距，看起来更宽敞
+
+            }}
+
+          >
+            {/* 开关控制 */}
+            <Row gutter={16} align="middle" justify="space-between"
+              style={{
+                marginBottom: '24px',
+                transition: '0.3s ease', // 添加平滑的过渡动画
+              }}>
+              <Col>
+                <span className="mr-2 text-lg">空调开关:</span>
+              </Col>
+              <Col>
+                <Switch
+                  checkedChildren="开"
+                  unCheckedChildren="关"
+                  checked={isOn}
+                  onChange={handleSwitch}
+                  style={{ width: '80px', backgroundColor: !isOn ? '#1890ff' : '#f5222d' }}
+                  icon={<PoweroffOutlined />}
+                />
+              </Col>
+            </Row>
+
+            {/* 制冷/制热模式选择 */}
+            {isOn && (
+              <>
                 <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
-                    <Col>
-                        <span className="mr-2 text-lg">制冷/制热模式:</span>
-                    </Col>
-                    <Col>
-                        <Switch
-                        checkedChildren="制冷"
-                        unCheckedChildren="制热"
-                        checked={coolingHeatingMode === 'cooling'}
-                        onChange={(checked) => handleCoolingHeatingChange(checked ? 'cooling' : 'heating')}
-                        style={{ width: '80px', backgroundColor: coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d' }}
-                        />
-                    </Col>
+                  <Col>
+                    <span className="mr-2 text-lg">制冷/制热模式:</span>
+                  </Col>
+                  <Col>
+                    <Switch
+                      checkedChildren="制冷"
+                      unCheckedChildren="制热"
+                      checked={coolingHeatingMode === 'cooling'}
+                      onChange={(checked) => handleCoolingHeatingChange(checked ? 'cooling' : 'heating')}
+                      style={{ width: '80px', backgroundColor: coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d' }}
+                    />
+                  </Col>
                 </Row>
 
-              {/* 温度调节 */}
-              <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
-                <Col>
-                  <span className="mr-2 text-lg">温度设置: {temperature} °C</span>
-                </Col>
-                <Col span={12}>
-                  <Slider
-                    min={16}
-                    max={30}
-                    value={temperature}
-                    onChange={handleTemperatureChange}
-                    marks={{ 16: '16°C', 30: '30°C' }}
-                  />
-                </Col>
-              </Row>
+                {/* 温度调节 */}
+                <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
+                  <Col>
+                    <span className="mr-2 text-lg">温度设置: {temperature} °C</span>
+                  </Col>
+                  <Col span={12}>
+                    <Slider
+                      min={16}
+                      max={30}
+                      value={temperature}
+                      onChange={handleTemperatureChange}  // 实时更新 UI，但不发送请求
+                      onAfterChange={handleTemperatureAfterChange}  // 用户松开后发送请求
+                      marks={{ 16: '16°C', 30: '30°C' }}
+                    />
+                  </Col>
+                </Row>
 
-              {/* 模式选择 */}
-              <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
-                <Col>
-                  <span className="mr-2 text-lg">运行模式选择:</span>
-                </Col>
-                <Col span={12}>
-                  <Select value={mode} onChange={handleModeChange} style={{ width: '100%' }}>
-                    <Option value="energySaving">节能模式</Option>
-                    <Option value="strongCooling">强效制冷</Option>
-                    <Option value="forcedHeating">强效加热</Option>
-                    <Option value="custom">自定义模式</Option>
-                  </Select>
-                </Col>
-              </Row>
+                {/* 模式选择 */}
+                <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
+                  <Col>
+                    <span className="mr-2 text-lg">运行模式选择:</span>
+                  </Col>
+                  <Col span={12}>
+                    <Select value={mode} onChange={handleModeChange} style={{ width: '100%' }}>
+                      <Option value="energySaving">节能模式</Option>
+                      <Option value="strongCooling">强效制冷</Option>
+                      <Option value="forcedHeating">强效加热</Option>
+                      <Option value="custom">自定义模式</Option>
+                    </Select>
+                  </Col>
+                </Row>
 
-              {/* 风速调节 */}
-              <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
-                <Col>
-                  <span className="mr-2 text-lg">风速调节:</span>
-                </Col>
-                <Col span={12}>
-                  <Select value={windSpeed} onChange={handleWindSpeedChange} style={{ width: '100%' }}>
-                    <Option value="low">低</Option>
-                    <Option value="medium">中</Option>
-                    <Option value="high">高</Option>
-                  </Select>
-                </Col>
-              </Row>
-            </>
-          )}
-        </Card>
-      </Col>
-    </Row>
+                {/* 风速调节 */}
+                <Row gutter={16} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
+                  <Col>
+                    <span className="mr-2 text-lg">风速调节:</span>
+                  </Col>
+                  <Col span={12}>
+                    <Select value={windSpeed} onChange={handleWindSpeedChange} style={{ width: '100%' }}>
+                      <Option value="low">低</Option>
+                      <Option value="medium">中</Option>
+                      <Option value="high">高</Option>
+                    </Select>
+                  </Col>
+                </Row>
+              </>
+            )}
+          </Card>
+        </Col>
+      </Row>
+    </div>
   );
 };
 
