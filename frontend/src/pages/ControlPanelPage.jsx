@@ -65,7 +65,7 @@ const ControlPanelPage = () => {
 
         // 如果当前模式是强效制冷，增加雪花数量
         if (mode === 'strongCooling') {
-          targetCount = 0; // 增加雪花数量
+          targetCount = 50; // 增加雪花数量
         }
 
         const currentSnowflakes = container.children.length;
