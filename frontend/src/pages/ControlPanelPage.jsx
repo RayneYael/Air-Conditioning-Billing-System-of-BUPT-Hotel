@@ -37,34 +37,85 @@ const ControlPanelPage = () => {
 
   // 动态生成雪花
   useEffect(() => {
+    const container = snowflakeContainer.current;
+
     if (isOn && coolingHeatingMode === 'cooling') {
-      const createSnowflakes = () => {
-        let snowflakeCount = 20; // 默认雪花数量
+      // 创建生成雪花的定时器
+      const snowflakeInterval = setInterval(() => {
+        let targetCount = 20; // 默认雪花数量
 
         // 如果当前模式是强效制冷，增加雪花数量
         if (mode === 'strongCooling') {
-          snowflakeCount = 50; // 增加雪花数量
+          targetCount = 50; // 增加雪花数量
         }
 
-        const container = snowflakeContainer.current;
-        if (container) {
-          // 清除现有雪花
-          container.innerHTML = '';
-          for (let i = 0; i < snowflakeCount; i++) {
-            const snowflake = document.createElement('div');
-            snowflake.className = 'snowflake';
-            snowflake.style.left = `${Math.random() * 100}%`;
-            snowflake.style.animationDuration = `${Math.random() * 3 + 2}s`;
-            container.appendChild(snowflake);
+        const currentSnowflakes = container.children.length;
+
+        // 如果当前雪花数量不足，则增加
+        if (currentSnowflakes < targetCount) {
+          const snowflake = document.createElement('div');
+          snowflake.className = 'snowflake';
+
+          // 生成左边、中间、右边的不同区域
+          const leftPosition = Math.random();
+          if (leftPosition < 0.1) {
+            // 10% 的雪花生成在最左侧 10% 的区域
+            snowflake.style.left = `${Math.random() * 10}%`;
+          } else if (leftPosition > 0.9) {
+            // 10% 的雪花生成在最右侧 10% 的区域
+            snowflake.style.left = `${90 + Math.random() * 10}%`;
+          } else {
+            // 80% 的雪花生成在中间的 80% 区域
+            snowflake.style.left = `${10 + Math.random() * 80}%`;
+          }
+
+          snowflake.style.animationDuration = `${Math.random() * 3 + 2}s`;
+
+          // 创建两条额外的对角线条
+          const line1 = document.createElement('div');
+          line1.className = 'line1';
+          const line2 = document.createElement('div');
+          line2.className = 'line2';
+
+          // 将额外的线条加入雪花
+          snowflake.appendChild(line1);
+          snowflake.appendChild(line2);
+
+          container.appendChild(snowflake);
+        }
+        // 如果当前雪花数量过多，则平滑移除多余的
+        if (currentSnowflakes > targetCount) {
+          for (let i = currentSnowflakes; i > targetCount; i--) {
+            const snowflake = container.children[i - 1];
+            snowflake.style.opacity = 0; // 逐渐隐藏
+
+            // 等到动画结束后再移除
+            setTimeout(() => {
+              if (snowflake.parentNode) {
+                snowflake.parentNode.removeChild(snowflake);
+              }
+            }, 1000); // 1s后移除雪花
           }
         }
-      };
-      createSnowflakes();
-    } else if (snowflakeContainer.current) {
-      // 如果是制热模式或空调关闭，清除所有雪花
-      snowflakeContainer.current.innerHTML = '';
+      }, 10); // 每10ms检查并生成新的雪花
+
+      // 清除定时器
+      return () => clearInterval(snowflakeInterval);
+    } else if (container) {
+      // 如果是制热模式或空调关闭，逐步减少雪花数量
+      const currentSnowflakes = container.children.length;
+
+      const reduceSnowflakes = setInterval(() => {
+        if (container.children.length > 0) {
+          container.removeChild(container.lastChild);
+        } else {
+          clearInterval(reduceSnowflakes); // 当所有雪花移除完毕后，停止减少
+        }
+      }, 100); // 每100ms移除一个雪花，创建一个平滑的减少效果
     }
   }, [isOn, coolingHeatingMode, mode]);
+
+
 
   // 实时更新数据库中的设置
   const updateSettings = (newSettings) => {
@@ -219,24 +270,26 @@ const ControlPanelPage = () => {
 
 
   return (
-    <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '90vh', overflow: 'hidden' }}>
 
-      {/* 雪花容器 - 仅在制冷模式下且空调开启时显示 */}
-      {isOn && coolingHeatingMode === 'cooling' && (
-        <div ref={snowflakeContainer} style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 1,
-          pointerEvents: 'none',
-          overflow: 'hidden'
-        }}>
-          {/* 雪花将被动态插入到这里 */}
+      {/* 雪花容器始终存在，通过动态调整雪花数量来控制效果 */}
+      <div ref={snowflakeContainer} style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 1,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+        opacity: isOn && coolingHeatingMode === 'cooling' ? 1 : 0, // 控制雪花是否显示
+        transition: 'opacity 1s ease' // 平滑过渡显示与隐藏
+      }}>
+        <div className="snowflake">
+          <div className="line1"></div>
+          <div className="line2"></div>
         </div>
-      )}
-
+      </div>
 
       {/* 普通制热模式下的热浪线条 */}
       {isOn && coolingHeatingMode === 'heating' && mode !== 'forcedHeating' && (
@@ -260,7 +313,7 @@ const ControlPanelPage = () => {
           <div className="heat-wave-line-strong" style={{ bottom: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
           <div className="heat-wave-line-strong" style={{ bottom: '40px', zIndex: 1, pointerEvents: 'none' }}></div>
           <div className="heat-wave-line-strong" style={{ bottom: '60px', zIndex: 1, pointerEvents: 'none' }}></div>
-         
+
         </>
       )}
 
@@ -295,15 +348,16 @@ const ControlPanelPage = () => {
 
       <Row justify="center" align="middle"
         style={{
-          height: '100vh',
+          height: '90vh',
           ...getBackgroundStyle(), // 根据制冷/制热模式动态切换背景颜色
           position: 'relative',
         }}>
-        <Col xs={24} sm={20} md={16} lg={12} xl={10}>
+        <Col xs={26} sm={22} md={18} lg={14} xl={12}>
           <Card
             title="空调控制面板"
             bordered={false}
             style={{
+              height: '55vh',
               width: '100%',
               backgroundColor: 'rgba(255, 255, 255, 0.9)', // 白色半透明背景，保持UI清晰
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', // 添加阴影增强层次感
