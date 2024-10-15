@@ -111,7 +111,7 @@
 .heat-wave-line-strong {
     position: absolute;
     width: 90%;
-    height: 12px;
+    height: 10px;
     /* 加粗线条 */
     background: linear-gradient(to right, rgba(255, 150, 50, 0.6), rgba(255, 69, 0, 0.6), rgba(255, 150, 50, 0.6));
     border-radius: 60%;
