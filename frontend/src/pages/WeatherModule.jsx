@@ -57,9 +57,7 @@ const WeatherModule = () => {
                     <i
                         className={iconClassName}
                         style={{
-                            color: iconColor,
-                            fontSize: '28px',
-                            marginRight: '8px',
+                            color: iconColor, fontSize: '28px', marginRight: '12px',
                         }}
                     ></i>
                     <span style={{ fontSize: '16px', marginRight: '8px', fontWeight: 'bold' }}>
@@ -69,19 +67,19 @@ const WeatherModule = () => {
                         {weatherData.now.temp}°C
                     </span>
                 </div>
-    
+
                 {/* 湿度部分 */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <i
                         className="qi-399"
-                        style={{ color: '#1296db', fontSize: '24px', marginRight: '12px' }}
+                        style={{ color: '#1296db', fontSize: '28px', marginRight: '12px' }}
                     ></i>
                     <span style={{ fontSize: '18px', fontWeight: 'bold' }}>
                         {weatherData.now.humidity}%
                     </span>
                 </div>
             </div>
-    
+
             {/* 右侧风速信息部分 */}
             <div
                 style={{
@@ -92,7 +90,7 @@ const WeatherModule = () => {
                     flexDirection: 'column',
                     alignItems: 'flex-start',
                     gap: '10px', // 控制每行之间的间距
-                    padding: '16px 20px 10px 20px', // 上 右 下 左
+                    padding: '18px 25px 15px 20px', // 上 右 下 左
                     backgroundColor: 'rgba(255, 255, 255, 0.8)',
                     borderRadius: '10px',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)', // 微增强阴影
@@ -100,33 +98,33 @@ const WeatherModule = () => {
             >
                 {/* 风向部分 */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 'bold', marginRight: '8px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 'bold', marginRight: '8px' }}>
                         风向:
                     </span>
-                    <span style={{ fontSize: '15px' }}>{weatherData.now.windDir}</span>
+                    <span style={{ fontSize: '16px' }}>{weatherData.now.windDir}</span>
                 </div>
-    
+
                 {/* 风速部分 */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 'bold', marginRight: '8px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 'bold', marginRight: '8px' }}>
                         风速:
                     </span>
-                    <span style={{ fontSize: '15px' }}>{weatherData.now.windSpeed} km/h</span>
+                    <span style={{ fontSize: '16px' }}>{weatherData.now.windSpeed} km/h</span>
                 </div>
-    
+
                 {/* 能见度部分 */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <span style={{ fontSize: '15px', fontWeight: 'bold', marginRight: '8px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 'bold', marginRight: '8px' }}>
                         能见度:
                     </span>
-                    <span style={{ fontSize: '15px' }}>{weatherData.now.vis} km</span>
+                    <span style={{ fontSize: '16px' }}>{weatherData.now.vis} km</span>
                 </div>
             </div>
         </>
     );
-    
-    
-    
+
+
+
 
 };
 
