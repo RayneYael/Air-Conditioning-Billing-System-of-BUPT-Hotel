@@ -3,6 +3,7 @@ import { message, Switch, Slider, Select, Card, Row, Col, Button, Progress, } fr
 import { PoweroffOutlined } from '@ant-design/icons'; // 添加一个开关图标
 import axios from 'axios';
 import "../App.css"
+import WeatherModule from './WeatherModule'; // 引入天气模块
 
 const { Option } = Select;
 const Host = import.meta.env.VITE_HOST;
@@ -416,6 +417,8 @@ const ControlPanelPage = () => {
                   }}
                 />
 
+                <WeatherModule />
+
                 {/* 图标在空调开启时才显示 */}
                 {isOn && (
                   <>
@@ -469,7 +472,7 @@ const ControlPanelPage = () => {
                     {/* 节能模式图标，分别根据制冷和制热显示不同图标 */}
                     <div style={{
                       position: 'absolute',
-                      top: '10px',
+                      top: '12px',
                       left: '-38px',
                     }}>
                       {mode === 'energySaving' ? (
