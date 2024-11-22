@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Card, Button, message, Modal } from 'antd';
-import { ExportOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import { ExportOutlined, ClockCircleOutlined, SettingOutlined, DollarOutlined, HomeOutlined } from '@ant-design/icons';
 import moment from 'moment';
+import { ROOM_TYPES, calculateRoomFee, getRoomType, formatAmount } from '../utils/roomUtils';
 
 const Host = import.meta.env.VITE_HOST;
 const Port = import.meta.env.VITE_API_PORT;
@@ -11,157 +11,255 @@ const FeeDetailsPage = () => {
   const [data, setData] = useState([]);
   const [role, setRole] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-
   const id = localStorage.getItem('roomId');
 
-
   useEffect(() => {
-    axios.get(`http://${Host}:${Port}/api/feeDetails/` + id)
-      .then(response => {
-        const historyData = response.data;
-
-        // 计算每条记录的阶段费用
+    fetch(`http://${Host}:${Port}/api/feeDetails/${id}`)
+      .then(res => res.json())
+      .then(historyData => {
         const calculatedData = historyData.map((record, index) => {
           const currentStartTime = moment(record.startTime);
           let nextStartTime;
+          
+          // 添加唯一的 key
+          const uniqueKey = `${record.startTime}-${index}`;
 
-          // 判断changedSetting 是否为 isOn:false
-          if (record.changedSetting==='isOn: false') {
-            // 如果空调关闭，阶段费用直接为 0
-            return {
-              ...record,
-              stageCost: 0,
-              costPerHour: 0,
-            }; 
+          if (record.changedSetting === 'isOn: false') {
+            return { ...record, stageCost: 0, costPerHour: 0, key: uniqueKey };
           } else {
-            // 如果没有关闭空调，且有下一条记录，取下一条的 startTime
             if (historyData[index + 1]) {
               nextStartTime = moment(historyData[index + 1].startTime);
             } else {
-              // 否则动态计算最后一条记录的费用
-              return {
-                ...record,
-                stageCost: null, // 设置为null，在渲染时动态计算
-              };
+              return { ...record, stageCost: null, key: uniqueKey };
             }
           }
 
-          // 计算时间差（小时）
-          const durationInHours = nextStartTime.diff(currentStartTime, 'hours', true); // true to get float
-
-          // 计算阶段费用
+          const durationInHours = nextStartTime.diff(currentStartTime, 'hours', true);
           const stageCost = (durationInHours * record.costPerHour).toFixed(2);
-
-          return {
-            ...record,
-            stageCost, // 添加计算的阶段费用
-          };
+          return { ...record, stageCost, key: uniqueKey };
         });
-
-        setData(calculatedData); // 更新状态
+        
+        const sortedData = calculatedData.sort((a, b) =>
+          moment(a.startTime).isBefore(b.startTime) ? 1 : -1
+        );
+        setData(sortedData);
       })
-      .catch(error => {
-        message.error('获取费用详情失败');
-      });
-  }, []);
+      .catch(() => message.error('获取费用详情失败'));
+  }, [id]);
 
-  // 动态计算最后一条记录的阶段费用
   const calculateDynamicStageCost = (record) => {
     const startTime = moment(record.startTime);
-    const currentTime = moment(); // 当前时间
-    const durationInHours = currentTime.diff(startTime, 'hours', true); // 计算当前时间与开始时间的差值（小时）
-
-    // 返回动态计算的阶段费用
-    return (durationInHours * record.costPerHour).toFixed(2);
+    const durationInHours = moment().diff(startTime, 'hours', true);
+    return formatAmount(durationInHours * record.costPerHour);
   };
 
-  // 列定义
+  // 计算空调总费用
+  const acTotalCost = Array.isArray(data)
+    ? formatAmount(data.reduce((sum, record) => {
+        if (record.stageCost === null) {
+          if (record.changedSetting === 'isOn: false') return sum;
+          return sum + parseFloat(calculateDynamicStageCost(record));
+        }
+        return sum + parseFloat(record.stageCost || 0);
+      }, 0))
+    : '0.00';
+
+  // 计算房间费用
+  const calculateRoomCharge = () => {
+    if (!data || data.length === 0) return '0.00';
+    
+    const sortedByTime = [...data].sort((a, b) => 
+      moment(a.startTime).diff(moment(b.startTime))
+    );
+    const checkInTime = sortedByTime[0]?.startTime;
+    
+    if (!checkInTime) return '0.00';
+
+    const roomType = getRoomType(parseInt(id));
+    return formatAmount(calculateRoomFee(checkInTime, roomType));
+  };
+
+  // 计算总费用
+  const calculateTotalFee = () => {
+    const roomFee = parseFloat(calculateRoomCharge());
+    const acFee = parseFloat(acTotalCost);
+    return formatAmount(roomFee + acFee);
+  };
+
   const columns = [
     {
-      title: '开始时间',
+      title: (
+        <div className="flex items-center justify-center gap-2 text-gray-700">
+          <ClockCircleOutlined />
+          <span>开始时间</span>
+        </div>
+      ),
       dataIndex: 'startTime',
       key: 'startTime',
-      render: (startTime) => moment(startTime).format('YYYY-MM-DD HH:mm:ss'),
+      align: 'center',
+      width: '30%',
+      render: (startTime) => (
+        <div className="text-gray-600 bg-gray-50 py-2 px-3 rounded">
+          {moment(startTime).format('YYYY-MM-DD HH:mm:ss')}
+        </div>
+      ),
     },
     {
-      title: '修改设置',
+      title: (
+        <div className="flex items-center justify-center gap-2 text-gray-700">
+          <SettingOutlined />
+          <span>修改设置</span>
+        </div>
+      ),
       dataIndex: 'changedSetting',
       key: 'changedSetting',
+      align: 'center',
+      width: '20%',
+      render: (setting) => (
+        <div className={`py-2 px-3 rounded ${
+          setting === 'isOn: false' 
+            ? 'bg-red-50 text-red-600' 
+            : 'bg-green-50 text-green-600'
+        }`}>
+          {setting}
+        </div>
+      ),
     },
     {
-      title: '每小时费用 (元)',
+      title: (
+        <div className="flex items-center justify-center gap-2 text-gray-700">
+          <DollarOutlined />
+          <span>每小时费用</span>
+        </div>
+      ),
       dataIndex: 'costPerHour',
       key: 'costPerHour',
+      align: 'center',
+      width: '20%',
+      render: (cost) => (
+        <div className="bg-gray-50 py-2 px-3 rounded">
+          ¥{cost}/小时
+        </div>
+      ),
     },
     {
-      title: '阶段费用 (元)',
+      title: (
+        <div className="flex items-center justify-center gap-2 text-gray-700">
+          <DollarOutlined />
+          <span>阶段费用</span>
+        </div>
+      ),
       dataIndex: 'stageCost',
       key: 'stageCost',
+      align: 'center',
+      width: '20%',
       render: (_, record) => {
-        // 如果是最后一条记录，动态计算费用
-        if (record.stageCost === null) {
-          return calculateDynamicStageCost(record);
-        }
-        // 否则直接渲染已经计算好的费用
-        return record.stageCost;
+        const cost = record.stageCost === null ? calculateDynamicStageCost(record) : record.stageCost;
+        return (
+          <div className="bg-blue-50 text-blue-600 font-medium py-2 px-3 rounded">
+            ¥{cost}
+          </div>
+        );
       },
     },
   ];
 
-  // 计算当前总费用（包括动态计算的最后一条记录）
-  const totalCost = Array.isArray(data)
-  ? data.reduce((sum, record) => {
-      // 如果 stageCost 是 null，则说明它需要动态计算
-      if (record.stageCost === null) {
-        // 但如果 changedSetting 为 isOn:false，则 stageCost 应该是 0，不再计算
-        if (record.changedSetting && record.changedSetting.isOn === false) {
-          return sum;
-        }
-        return sum + parseFloat(calculateDynamicStageCost(record));
-      }
-      return sum + parseFloat(record.stageCost || 0); // 正常情况直接加上 stageCost
-    }, 0).toFixed(2)
-  : 0;
-
-
   return (
-    <Card
-      title={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>费用明细</span>
-          {role !== 'room' && (
-            <Button
-              type="primary"
-              icon={<ExportOutlined />}
-              onClick={() => setIsModalVisible(true)}  // 改为控制 Modal 显示
-            >
-              查看费用详单
-            </Button>
-          )}
-        </div>
-      }
-      bordered={false}
-      style={{ margin: '24px' }}
-    >
-      <Table columns={columns} dataSource={data} pagination={{ pageSize: 10 }} />
-      <div style={{ marginTop: '16px', fontWeight: 'bold', fontSize: '16px' }}>
-        当前总费用: {totalCost} 元
-      </div>
-
-      <Modal
-        title="费用详单"
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={[
-          <Button key="close" onClick={() => setIsModalVisible(false)}>
-            关闭
-          </Button>,
-        ]}
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <Card
+        title={
+          <div className="flex justify-between items-center py-2">
+            <span className="text-xl font-medium text-gray-800">费用明细</span>
+            {role !== 'room' && (
+              <Button
+                type="default"
+                icon={<ExportOutlined />}
+                onClick={() => setIsModalVisible(true)}
+                className="border-gray-300 hover:border-gray-400"
+              >
+                查看费用详单
+              </Button>
+            )}
+          </div>
+        }
+        bordered={false}
+        className="shadow-lg rounded-xl"
       >
-        <Table columns={columns} dataSource={data} pagination={false} />
-      </Modal>
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-500 text-center mb-1">房间号</div>
+            <div className="text-2xl font-medium text-gray-800 text-center">{id}</div>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-500 text-center mb-1">酒店费用</div>
+            <div className="text-2xl font-medium text-green-600 text-center">¥{calculateRoomCharge()}</div>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-500 text-center mb-1">空调费用</div>
+            <div className="text-2xl font-medium text-blue-600 text-center">¥{acTotalCost}</div>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-500 text-center mb-1">总费用</div>
+            <div className="text-2xl font-medium text-purple-600 text-center">¥{calculateTotalFee()}</div>
+          </div>
+        </div>
 
-    </Card>
+        <Table 
+          columns={columns} 
+          dataSource={data}
+          rowKey="key"
+          pagination={{ 
+            pageSize: 8,
+            className: "mt-4" 
+          }}
+          className="border rounded-lg shadow-sm bg-white"
+          rowClassName="hover:bg-gray-50"
+        />
+
+        <Modal
+          title={<span className="text-xl font-medium text-gray-800">费用详单</span>}
+          open={isModalVisible}
+          onCancel={() => setIsModalVisible(false)}
+          width={900}
+          footer={[
+            <Button 
+              key="close" 
+              onClick={() => setIsModalVisible(false)}
+              className="hover:bg-gray-100"
+            >
+              关闭
+            </Button>
+          ]}
+          className="rounded-lg"
+        >
+          <div className="grid grid-cols-4 gap-4 my-6">
+            <div className="bg-gray-50 p-4 rounded-lg text-center">
+              <div className="text-sm text-gray-500 mb-1">房间号</div>
+              <div className="text-xl font-medium text-gray-800">{id}</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg text-center">
+              <div className="text-sm text-gray-500 mb-1">酒店费用</div>
+              <div className="text-xl font-medium text-green-600">¥{calculateRoomCharge()}</div>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg text-center">
+              <div className="text-sm text-gray-500 mb-1">空调费用</div>
+              <div className="text-xl font-medium text-blue-600">¥{acTotalCost}</div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg text-center">
+              <div className="text-sm text-gray-500 mb-1">总费用</div>
+              <div className="text-xl font-medium text-purple-600">¥{calculateTotalFee()}</div>
+            </div>
+          </div>
+          <Table 
+            columns={columns} 
+            dataSource={data}
+            rowKey="key"
+            pagination={false}
+            className="border rounded-lg" 
+          />
+        </Modal>
+      </Card>
+    </div>
   );
 };
 

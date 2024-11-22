@@ -16,6 +16,8 @@ const ControlPanelPage = () => {
   const [mode, setMode] = useState('energySaving'); // 运行模式初始为节能模式
   const [coolingHeatingMode, setCoolingHeatingMode] = useState('cooling'); // 制冷或制热模式
 
+  const [swing, setSwing] = useState(false);
+
   const snowflakeContainer = useRef(null);  // 用于获取雪花的容器引用
 
   const id = localStorage.getItem('roomId');
@@ -65,11 +67,11 @@ const ControlPanelPage = () => {
         let targetCount = 20; // 默认雪花数量
 
         if (windSpeed === 'low') {
-          targetCount = 20; // 风速低时的雪花数量
+          targetCount = 30; // 风速低时的雪花数量
         } else if (windSpeed === 'medium') {
-          targetCount = 50; // 风速中等时的雪花数量
+          targetCount = 60; // 风速中等时的雪花数量
         } else if (windSpeed === 'high') {
-          targetCount = 80; // 风速高时的雪花数量
+          targetCount = 120; // 风速高时的雪花数量
         }
 
         const currentSnowflakes = container.children.length;
@@ -393,117 +395,155 @@ const ControlPanelPage = () => {
               padding: '10px', // 让内容有更多内边距，看起来更宽敞
               filter: isOn ? 'none' : 'brightness(0.7)', // 关闭时降低亮度
               transition: 'background-color 0.5s ease, filter 0.5s ease', // 添加过渡效果
-
+              zIndex: 2  // 添加更高的 z-index
             }}
           >
 
-            {/* 进度条和图标显示 */}
+            {/* 温度和图标显示 */}
+            {/* 温度显示区域 */}
             <Row justify="center" align="middle" style={{ marginTop: '0px', marginBottom: '24px', position: 'relative' }}>
               <Col style={{ textAlign: 'center' }}>
-                {/* 进度条 */}
-                <Progress
-                  type="circle"
-                  percent={(temperature - 16) * (100 / (30 - 16))} // 温度百分比
-                  format={(percent) => `${Math.round(percent / 100 * (30 - 16) + 16)}°C`} // 显示温度
-                  width={130} // 调整进度条的大小
-                  strokeColor={
-                    isOn
-                      ? (coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d') // 开机时根据模式显示颜色
-                      : 'rgba(128, 128, 128, 0.5)' // 关机时的暗淡颜色
-                  }
-                  style={{
-                    fontSize: '50px',  // 调整进度条中数字的大小
-                    display: 'inline-block', // 保持进度条居中
-                  }}
-                />
-
-                <WeatherModule />
-
-                {/* 图标在空调开启时才显示 */}
-                {isOn && (
-                  <>
-                    {/* 制冷/制热图标，放在进度条的右上角 */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '-35px',
-                    }}>
-                      {coolingHeatingMode === 'cooling' ? (
-                        <i className="fas fa-snowflake" style={{ fontSize: '24px', color: '#1890ff' }}></i>
+                <div style={{ position: 'relative' }}>
+                  {/* 主温度显示圈 */}
+                  <Progress
+                    type="circle"
+                    percent={(temperature - 16) * (100 / (30 - 16))}
+                    format={() => (
+                      isOn ? ( // 只在开机状态显示温度信息
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center'
+                        }}>
+                          <span style={{
+                            fontSize: '12px',
+                            color: '#8c8c8c',
+                            marginBottom: '2px'
+                          }}>
+                            室温
+                          </span>
+                          <span style={{
+                            fontSize: '28px',
+                            fontWeight: 'bold',
+                            color: '#000000d9',
+                            lineHeight: '1'
+                          }}>
+                            24°C
+                          </span>
+                          <span style={{
+                            fontSize: '12px',
+                            color: '#8c8c8c',
+                            marginTop: '4px'
+                          }}>
+                            设定: {temperature}°C
+                          </span>
+                        </div>
                       ) : (
-                        <i className="fas fa-fire" style={{ fontSize: '24px', color: '#f5222d' }}></i>
-                      )}
-                    </div>
+                        <span style={{
+                          fontSize: '14px',
+                          color: '#00000040'  // 关机时显示较暗的"关"字
+                        }}>
 
-                    {/* 风速指示图标，放在进度条的右下角 */}
-                    <div style={{
-                      position: 'absolute',
-                      bottom: '10px',
-                      right: '-38px',
-                    }}>
-                      {/* 根据制冷或制热模式显示不同的风速图标 */}
-                      {coolingHeatingMode === 'cooling' ? (
-                        <>
-                          {windSpeed === 'low' && (
-                            <img src="/风速1-冷.png" alt="低风速(制冷)" style={{ width: '26px', height: '26px' }} />
-                          )}
-                          {windSpeed === 'medium' && (
-                            <img src="/风速2-冷.png" alt="中风速(制冷)" style={{ width: '26px', height: '26px' }} />
-                          )}
-                          {windSpeed === 'high' && (
-                            <img src="/风速3-冷.png" alt="高风速(制冷)" style={{ width: '26px', height: '26px' }} />
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          {windSpeed === 'low' && (
-                            <img src="/风速1-热.png" alt="低风速(制热)" style={{ width: '26px', height: '26px' }} />
-                          )}
-                          {windSpeed === 'medium' && (
-                            <img src="/风速2-热.png" alt="中风速(制热)" style={{ width: '26px', height: '26px' }} />
-                          )}
-                          {windSpeed === 'high' && (
-                            <img src="/风速3-热.png" alt="高风速(制热)" style={{ width: '26px', height: '26px' }} />
-                          )}
-                        </>
-                      )}
-                    </div>
+                        </span>
+                      )
+                    )}
+                    width={130}
+                    strokeColor={
+                      isOn
+                        ? (coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d')
+                        : 'rgba(128, 128, 128, 0.5)'
+                    }
+                  />
 
-                    {/* 节能模式图标，分别根据制冷和制热显示不同图标 */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      left: '-38px',
-                    }}>
-                      {mode === 'energySaving' ? (
-                        coolingHeatingMode === 'cooling' ? (
-                          <img src="/节能-冷.png" alt="节能模式(制冷)" style={{ width: '24px', height: '24px' }} />
+
+                  <WeatherModule />
+
+                  {/* 图标在空调开启时才显示 */}
+                  {isOn && (
+                    <>
+                      {/* 制冷/制热图标，放在进度条的左上角 */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '-38px',
+                      }}>
+                        {coolingHeatingMode === 'cooling' ? (
+                          <i className="fas fa-snowflake" style={{ fontSize: '24px', color: '#1890ff' }}></i>
                         ) : (
-                          <img src="/节能-热.png" alt="节能模式(制热)" style={{ width: '24px', height: '24px' }} />
-                        )
-                      ) : (
-                        <img src="/节能-关.png" alt="非节能模式" style={{ width: '24px', height: '24px' }} />
-                      )}
-                    </div>
+                          <i className="fas fa-fire" style={{ fontSize: '24px', color: '#f5222d' }}></i>
+                        )}
+                      </div>
 
-                    {/* 强效模式图标，分为强效制冷、强效制热、以及强效模式关闭 */}
-                    <div style={{
-                      position: 'absolute',
-                      bottom: '9px',
-                      left: '-38px',
-                    }}>
-                      {mode === 'strongCooling' && (
-                        <img src="/强效模式-冷.png" alt="强效制冷" style={{ width: '28px', height: '24px' }} />
-                      )}
-                      {mode === 'forcedHeating' && (
-                        <img src="/强效模式-热.png" alt="强效制热" style={{ width: '30px', height: '24px' }} />
-                      )}
-                      {mode !== 'strongCooling' && mode !== 'forcedHeating' && (
-                        <img src="/强效模式-关.png" alt="强效模式关闭" style={{ width: '26px', height: '24px' }} />
-                      )}
-                    </div>
-                  </>
-                )}
+                      {/* 风速指示图标，放在进度条的右上角 */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '-38px',
+                      }}>
+                        {/* 根据制冷或制热模式显示不同的风速图标 */}
+                        {coolingHeatingMode === 'cooling' ? (
+                          <>
+                            {windSpeed === 'low' && (
+                              <img src="/风速1-冷.png" alt="低风速(制冷)" style={{ width: '26px', height: '26px' }} />
+                            )}
+                            {windSpeed === 'medium' && (
+                              <img src="/风速2-冷.png" alt="中风速(制冷)" style={{ width: '26px', height: '26px' }} />
+                            )}
+                            {windSpeed === 'high' && (
+                              <img src="/风速3-冷.png" alt="高风速(制冷)" style={{ width: '26px', height: '26px' }} />
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {windSpeed === 'low' && (
+                              <img src="/风速1-热.png" alt="低风速(制热)" style={{ width: '26px', height: '26px' }} />
+                            )}
+                            {windSpeed === 'medium' && (
+                              <img src="/风速2-热.png" alt="中风速(制热)" style={{ width: '26px', height: '26px' }} />
+                            )}
+                            {windSpeed === 'high' && (
+                              <img src="/风速3-热.png" alt="高风速(制热)" style={{ width: '26px', height: '26px' }} />
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* 节能模式图标，分别根据制冷和制热显示不同图标 */}
+                      {/* <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        left: '-38px',
+                      }}>
+                        {mode === 'energySaving' ? (
+                          coolingHeatingMode === 'cooling' ? (
+                            <img src="/节能-冷.png" alt="节能模式(制冷)" style={{ width: '24px', height: '24px' }} />
+                          ) : (
+                            <img src="/节能-热.png" alt="节能模式(制热)" style={{ width: '24px', height: '24px' }} />
+                          )
+                        ) : (
+                          <img src="/节能-关.png" alt="非节能模式" style={{ width: '24px', height: '24px' }} />
+                        )}
+                      </div> */}
+
+                      {/* 强效模式图标，分为强效制冷、强效制热、以及强效模式关闭 */}
+                      {/* <div style={{
+                        position: 'absolute',
+                        bottom: '9px',
+                        left: '-38px',
+                      }}>
+                        {mode === 'strongCooling' && (
+                          <img src="/强效模式-冷.png" alt="强效制冷" style={{ width: '28px', height: '24px' }} />
+                        )}
+                        {mode === 'forcedHeating' && (
+                          <img src="/强效模式-热.png" alt="强效制热" style={{ width: '30px', height: '24px' }} />
+                        )}
+                        {mode !== 'strongCooling' && mode !== 'forcedHeating' && (
+                          <img src="/强效模式-关.png" alt="强效模式关闭" style={{ width: '26px', height: '24px' }} />
+                        )}
+                      </div> */}
+                    </>
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -645,9 +685,9 @@ const ControlPanelPage = () => {
               </Col>
             </Row>
 
-            {/* 模式选择 */}
+            {/* 添加扫风开关 */}
             <Row
-              gutter={[16, 16]} // 设置行间距和列间距
+              gutter={16}
               align="middle"
               justify="space-between"
               style={{
@@ -658,44 +698,185 @@ const ControlPanelPage = () => {
               }}
             >
               <Col>
-                <span className="mr-2 text-lg">运行模式选择:</span>
+                <span className="mr-2 text-lg">扫风模式:</span>
+              </Col>
+              <Col>
+                <Switch
+                  checked={swing}
+                  onChange={(checked) => setSwing(checked)}
+                  style={{
+                    backgroundColor: swing ? (coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d') : 'rgba(0, 0, 0, 0.25)'
+                  }}
+                />
+              </Col>
+            </Row>
+
+            {/* 模式选择 */}
+            {/* 
+  <Row
+  gutter={[16, 16]} // 设置行间距和列间距
+  align="middle"
+  justify="space-between"
+  style={{
+    marginBottom: '24px',
+    opacity: isOn ? 1 : 0,
+    pointerEvents: isOn ? 'auto' : 'none',
+    transition: 'opacity 0.3s ease',
+  }}
+>
+  <Col>
+    <span className="mr-2 text-lg">运行模式选择:</span>
+  </Col>
+
+  <Col style={{ textAlign: 'right', width: '240px', paddingLeft: '10px', paddingRight: '10px' }}>
+    <Row justify="end" style={{ marginBottom: '8px' }}>
+      <Button
+        type={mode === 'energySaving' ? 'primary' : 'default'}
+        onClick={() => handleModeChange('energySaving')}
+        style={{ width: '100px', marginRight: '10px' }}
+      >
+        节能模式
+      </Button>
+      <Button
+        type={mode === 'custom' ? 'primary' : 'default'}
+        onClick={() => handleModeChange('custom')}
+        style={{ width: '100px' }}
+      >
+        自定义模式
+      </Button>
+    </Row>
+    <Row justify="end">
+      <Button
+        type={mode === 'strongCooling' ? 'primary' : 'default'}
+        onClick={() => handleModeChange('strongCooling')}
+        style={{ width: '100px', marginRight: '10px' }}
+      >
+        强效制冷
+      </Button>
+      <Button
+        type={mode === 'forcedHeating' ? 'primary' : 'default'}
+        onClick={() => handleModeChange('forcedHeating')}
+        style={{ width: '100px' }}
+      >
+        强效加热
+      </Button>
+    </Row>
+  </Col>
+</Row>
+
+*/}
+
+            {/* 消费金额和电量模块 */}
+            <Row gutter={16} align="middle">
+              <Col span={12}>
+                <div style={{
+                  padding: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                  border: '1px solid #f0f0f0',
+                }}>
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#8c8c8c',
+                    marginBottom: '8px',
+                    fontWeight: '500'
+                  }}>
+                    总消费金额
+                  </div>
+                  <div style={{
+                    fontSize: '26px',
+                    color: '#1890ff',
+                    fontWeight: 'bold',
+                    lineHeight: '1.2'
+                  }}>
+                    ¥ 128.50
+                  </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#8c8c8c',
+                      marginBottom: '4px'
+                    }}>
+                      最近一次消费
+                    </div>
+                    <div>
+                      <span style={{
+                        color: '#52c41a',
+                        fontSize: '15px',
+                        fontWeight: '500'
+                      }}>
+                        ¥ 12.50
+                      </span>
+                      <span style={{
+                        fontSize: '12px',
+                        color: '#bfbfbf',
+                        marginLeft: '8px'
+                      }}>
+                        (2小时前)
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </Col>
 
-              <Col style={{ textAlign: 'right', width: '240px', paddingLeft: '10px', paddingRight: '10px' }}> {/* 添加左右 padding */}
-                <Row justify="end" style={{ marginBottom: '8px' }}> {/* 添加 marginBottom 使上下行之间有间距 */}
-                  <Button
-                    type={mode === 'energySaving' ? 'primary' : 'default'}
-                    onClick={() => handleModeChange('energySaving')}
-                    style={{ width: '100px', marginRight: '10px' }}  // 设置按钮右侧间距
-                  >
-                    节能模式
-                  </Button>
-                  <Button
-                    type={mode === 'custom' ? 'primary' : 'default'}
-                    onClick={() => handleModeChange('custom')}
-                    style={{ width: '100px' }}  // 不需要 marginRight 这是最后一个按钮
-                  >
-                    自定义模式
-                  </Button>
-
-                </Row>
-                <Row justify="end">
-                  <Button
-                    type={mode === 'strongCooling' ? 'primary' : 'default'}
-                    onClick={() => handleModeChange('strongCooling')}
-                    style={{ width: '100px', marginRight: '10px' }} // 设置按钮右侧间距
-                  >
-                    强效制冷
-                  </Button>
-
-                  <Button
-                    type={mode === 'forcedHeating' ? 'primary' : 'default'}
-                    onClick={() => handleModeChange('forcedHeating')}
-                    style={{ width: '100px' }}
-                  >
-                    强效加热
-                  </Button>
-                </Row>
+              <Col span={12}>
+                <div style={{
+                  padding: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                  border: '1px solid #f0f0f0',
+                }}>
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#8c8c8c',
+                    marginBottom: '8px',
+                    fontWeight: '500'
+                  }}>
+                    总耗电量
+                  </div>
+                  <div style={{
+                    fontSize: '26px',
+                    color: '#1890ff',
+                    fontWeight: 'bold',
+                    lineHeight: '1.2'
+                  }}>
+                    168.2
+                    <span style={{
+                      fontSize: '16px',
+                      marginLeft: '4px',
+                      fontWeight: '500'
+                    }}>
+                      kW·h
+                    </span>
+                  </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: '#8c8c8c',
+                      marginBottom: '4px'
+                    }}>
+                      最近耗电量
+                    </div>
+                    <div>
+                      <span style={{
+                        color: '#52c41a',
+                        fontSize: '15px',
+                        fontWeight: '500'
+                      }}>
+                        1.5 kW·h
+                      </span>
+                      <span style={{
+                        fontSize: '12px',
+                        color: '#bfbfbf',
+                        marginLeft: '8px'
+                      }}>
+                        (2小时前)
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </Col>
             </Row>
 
