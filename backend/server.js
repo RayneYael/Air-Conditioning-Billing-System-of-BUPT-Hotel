@@ -86,7 +86,8 @@ app.get('/api/controlPanelSettings/:id', (req, res) => {
     const roomId = req.params.id;
     const newSettings = req.body;
 
-  
+  // app.post('/api/controlPanelSettings', (req, res) => {
+  //   const { roomId, ...newSettings } = req.body;  // 从请求体中解构出id和其他设置
     // 构建动态 SQL 更新语句
     let updateFields = [];
     let updateValues = [];

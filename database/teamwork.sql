@@ -54,8 +54,9 @@ CREATE TABLE `settings` (
   `isOn` tinyint DEFAULT '0',
   `temperature` int DEFAULT '26',
   `windSpeed` enum('high','medium','low') DEFAULT 'low',
-  `mode` enum('energySaving','strongCooling','forcedHeating','custom') DEFAULT 'energySaving',
+  -- `mode` enum('energySaving','strongCooling','forcedHeating','custom') DEFAULT 'energySaving',
   `coolingHeatingMode` enum('cooling','heating') DEFAULT 'cooling',
+  `sweep` enum('on', 'off') DEFAULT 'off',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

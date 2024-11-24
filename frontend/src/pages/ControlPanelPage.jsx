@@ -13,10 +13,9 @@ const ControlPanelPage = () => {
   const [isOn, setIsOn] = useState(false); // 开关状态
   const [temperature, setTemperature] = useState(26); // 温度初始为26度（节能模式）
   const [windSpeed, setWindSpeed] = useState('low'); // 风速初始为低（节能模式）
-  const [mode, setMode] = useState('energySaving'); // 运行模式初始为节能模式
   const [coolingHeatingMode, setCoolingHeatingMode] = useState('cooling'); // 制冷或制热模式
 
-  const [swing, setSwing] = useState(false);
+  const [sweep, setSweep] = useState(false);
 
   const snowflakeContainer = useRef(null);  // 用于获取雪花的容器引用
 
@@ -34,24 +33,24 @@ const ControlPanelPage = () => {
           setIsOn(!!settings.isOn);
           setTemperature(settings.temperature || 26); // 使用数据库值或默认值
           setWindSpeed(settings.windSpeed || 'low');
-          setMode(settings.mode || 'energySaving');
           setCoolingHeatingMode(settings.coolingHeatingMode || 'cooling');
+          setSweep(settings.sweep === 'on'); // 将枚举值转换为布尔值
         } else {
           // 如果没有从数据库中获取到设置，可以在这里设置默认值
           setIsOn(false);
           setTemperature(26);
           setWindSpeed('low');
-          setMode('energySaving');
           setCoolingHeatingMode('cooling');
+          setSweep(false);
         }
       } catch (error) {
         message.error('获取设置失败，使用默认设置');
         // 数据获取失败时，使用默认值
         setIsOn(false);
         setTemperature(26);
-        setWindSpeed('low');
-        setMode('energySaving');
+        setWindSpeed('low')
         setCoolingHeatingMode('cooling');
+        setSweep(false);
       }
     };
 
@@ -154,22 +153,37 @@ const ControlPanelPage = () => {
       });
   };
 
-  // 预设模式的温度和风速
-  const modeSettings = {
-    energySaving: { temperature: 26, windSpeed: 'low' },
-    strongCooling: { temperature: 18, windSpeed: 'medium' },
-    forcedHeating: { temperature: 28, windSpeed: 'medium' },
-  };
 
+  // const updateSettings = (newSettings) => {
+  //   const allSettings = {
+  //     'roomId': id,
+  //     isOn: isOn,
+  //     temperature: temperature,
+  //     windSpeed: windSpeed,
+  //     coolingHeatingMode: coolingHeatingMode,
+  //     sweep: sweep ? 'on' : 'off',
+  //     ...newSettings  // 覆盖变更的设置
+  //   };
+  //   axios.post(`http://${Host}:${Port}/api/controlPanelSettings/`, allSettings)
+  //     .then(() => {
+  //       message.success('设置已更新');
+  //     })
+  //     .catch(error => {
+  //       message.error('更新设置失败');
+  //       console.error(error);
+  //     });
+  // };
+  
   // 开关控制，如果获取不到数据库，则开机时默认切换到节能模式
   const handleSwitch = (checked) => {
     setIsOn(checked);
     const newSettings = {
       isOn: checked,
-      mode: mode || 'energySaving',
+      
       temperature: temperature || 26,
       windSpeed: windSpeed || 'low',
       coolingHeatingMode: coolingHeatingMode || 'cooling',
+      sweep: value ? 'on' : 'off',  // 将布尔值转换为枚举值
     };
     updateSettings(newSettings); // 实时更新数据库
   };
@@ -185,10 +199,6 @@ const ControlPanelPage = () => {
     // 当用户停止滑动时才更新数据库
     updateSettings({
       temperature: value,
-      // mode: 'custom', 
-      // isOn, 
-      // windSpeed, 
-      // coolingHeatingMode
     });
   };
 
@@ -197,75 +207,27 @@ const ControlPanelPage = () => {
     setWindSpeed(value);
     let newSettings = {
       windSpeed: value,
-      // mode: 'custom', 
-      // isOn, 
-      // temperature, 
-      // coolingHeatingMode 
     };
-
-    // 如果当前模式是强效制冷或强效加热，且风速为低，切换为自定义模式
-    // 如果当前模式是节能模式，且风速不为低，切换为自定义模式
-    if (((mode === 'strongCooling' || mode === 'forcedHeating') && value == 'low')
-      || mode == 'energySaving' && value !== 'low') {
-      setMode('custom'); // 切换为自定义模式
-      newSettings.mode = 'custom';
-    }
-
-    setWindSpeed(value);
     updateSettings(newSettings);
   };
 
-  // 模式选择时，自动设置对应的温度和风速
-  const handleModeChange = (value) => {
-    setMode(value); // 更新当前模式
-
-    // 初始化设置对象
-    let newSettings = {
-      mode: value,
-      // temperature: modeSettings[value].temperature, 
-      // windSpeed: modeSettings[value].windSpeed, 
-      // isOn, 
-      // coolingHeatingMode 
-    };
-
-    if (value !== 'custom') {
-      const settings = modeSettings[value]; // 获取该模式下的预设值
-      setTemperature(settings.temperature);
-      setWindSpeed(settings.windSpeed);
-    }
-
-    // 根据模式自动切换制冷/制热
-    if (value === 'strongCooling') {
-      setCoolingHeatingMode('cooling'); // 切换到制冷模式
-      // newSettings.coolingHeatingMode = 'cooling'; // 更新 coolingHeatingMode 到 newSettings
-    } else if (value === 'forcedHeating') {
-      setCoolingHeatingMode('heating'); // 切换到制热模式
-      // newSettings.coolingHeatingMode = 'heating'; // 更新 coolingHeatingMode 到 newSettings
-    }
-
-    // 更新设置并同步到数据库
-    updateSettings(newSettings);
-  };
 
   // 设置制冷或制热模式
   const handleCoolingHeatingChange = (value) => {
     setCoolingHeatingMode(value);
     let newSettings = {
       coolingHeatingMode: value,
-      // isOn, 
-      // temperature, 
-      // windSpeed, 
-      // mode 
     };
+    updateSettings(newSettings);
+  };
 
-    // 如果当前模式是强效制冷或强效加热，切换模式为自定义
-    if (mode === 'strongCooling' && value === 'heating') {
-      setMode('custom'); // 切换为自定义模式
-      newSettings.mode = 'custom';
-    } else if (mode === 'forcedHeating' && value === 'cooling') {
-      setMode('custom'); // 切换为自定义模式
-      newSettings.mode = 'custom';
-    }
+
+  // 设置制冷或制热模式
+  const handleSweep = (value) => {
+    setSweep(value);
+    let newSettings = {
+      sweep: value ? 'on' : 'off',  // 将布尔值转换为枚举值
+    };
 
     updateSettings(newSettings);
   };
@@ -507,40 +469,6 @@ const ControlPanelPage = () => {
                           </>
                         )}
                       </div>
-
-                      {/* 节能模式图标，分别根据制冷和制热显示不同图标 */}
-                      {/* <div style={{
-                        position: 'absolute',
-                        top: '12px',
-                        left: '-38px',
-                      }}>
-                        {mode === 'energySaving' ? (
-                          coolingHeatingMode === 'cooling' ? (
-                            <img src="/节能-冷.png" alt="节能模式(制冷)" style={{ width: '24px', height: '24px' }} />
-                          ) : (
-                            <img src="/节能-热.png" alt="节能模式(制热)" style={{ width: '24px', height: '24px' }} />
-                          )
-                        ) : (
-                          <img src="/节能-关.png" alt="非节能模式" style={{ width: '24px', height: '24px' }} />
-                        )}
-                      </div> */}
-
-                      {/* 强效模式图标，分为强效制冷、强效制热、以及强效模式关闭 */}
-                      {/* <div style={{
-                        position: 'absolute',
-                        bottom: '9px',
-                        left: '-38px',
-                      }}>
-                        {mode === 'strongCooling' && (
-                          <img src="/强效模式-冷.png" alt="强效制冷" style={{ width: '28px', height: '24px' }} />
-                        )}
-                        {mode === 'forcedHeating' && (
-                          <img src="/强效模式-热.png" alt="强效制热" style={{ width: '30px', height: '24px' }} />
-                        )}
-                        {mode !== 'strongCooling' && mode !== 'forcedHeating' && (
-                          <img src="/强效模式-关.png" alt="强效模式关闭" style={{ width: '26px', height: '24px' }} />
-                        )}
-                      </div> */}
                     </>
                   )}
                 </div>
@@ -702,69 +630,14 @@ const ControlPanelPage = () => {
               </Col>
               <Col>
                 <Switch
-                  checked={swing}
-                  onChange={(checked) => setSwing(checked)}
+                  checked={sweep}
+                  onChange={(checked) => handleSweep(checked)}
                   style={{
-                    backgroundColor: swing ? (coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d') : 'rgba(0, 0, 0, 0.25)'
+                    backgroundColor: sweep ? (coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d') : 'rgba(0, 0, 0, 0.25)'
                   }}
                 />
               </Col>
             </Row>
-
-            {/* 模式选择 */}
-            {/* 
-  <Row
-  gutter={[16, 16]} // 设置行间距和列间距
-  align="middle"
-  justify="space-between"
-  style={{
-    marginBottom: '24px',
-    opacity: isOn ? 1 : 0,
-    pointerEvents: isOn ? 'auto' : 'none',
-    transition: 'opacity 0.3s ease',
-  }}
->
-  <Col>
-    <span className="mr-2 text-lg">运行模式选择:</span>
-  </Col>
-
-  <Col style={{ textAlign: 'right', width: '240px', paddingLeft: '10px', paddingRight: '10px' }}>
-    <Row justify="end" style={{ marginBottom: '8px' }}>
-      <Button
-        type={mode === 'energySaving' ? 'primary' : 'default'}
-        onClick={() => handleModeChange('energySaving')}
-        style={{ width: '100px', marginRight: '10px' }}
-      >
-        节能模式
-      </Button>
-      <Button
-        type={mode === 'custom' ? 'primary' : 'default'}
-        onClick={() => handleModeChange('custom')}
-        style={{ width: '100px' }}
-      >
-        自定义模式
-      </Button>
-    </Row>
-    <Row justify="end">
-      <Button
-        type={mode === 'strongCooling' ? 'primary' : 'default'}
-        onClick={() => handleModeChange('strongCooling')}
-        style={{ width: '100px', marginRight: '10px' }}
-      >
-        强效制冷
-      </Button>
-      <Button
-        type={mode === 'forcedHeating' ? 'primary' : 'default'}
-        onClick={() => handleModeChange('forcedHeating')}
-        style={{ width: '100px' }}
-      >
-        强效加热
-      </Button>
-    </Row>
-  </Col>
-</Row>
-
-*/}
 
             {/* 消费金额和电量模块 */}
             <Row gutter={16} align="middle">
