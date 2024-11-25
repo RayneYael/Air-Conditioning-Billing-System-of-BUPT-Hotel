@@ -50,14 +50,18 @@ DROP TABLE IF EXISTS `settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `settings` (
-  `id` int NOT NULL,
-  `isOn` tinyint DEFAULT '0',
+  `roomID` int NOT NULL,
+  -- `isOn` tinyint DEFAULT '0',
+  `roomTemperature` int DEFAULT '26',
+  `power` enum('on', 'off') DEFAULT 'off',
   `temperature` int DEFAULT '26',
-  `windSpeed` enum('high','medium','low') DEFAULT 'low',
+  `windSpeed` enum('高','中','低') DEFAULT '低',
   -- `mode` enum('energySaving','strongCooling','forcedHeating','custom') DEFAULT 'energySaving',
-  `coolingHeatingMode` enum('cooling','heating') DEFAULT 'cooling',
-  `sweep` enum('on', 'off') DEFAULT 'off',
-  PRIMARY KEY (`id`)
+  `mode` enum('制冷','制热') DEFAULT '制冷',
+  `sweep` enum('开', '关') DEFAULT '关',
+  `cost` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  `totalCost` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`roomId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -67,8 +71,18 @@ CREATE TABLE `settings` (
 
 LOCK TABLES `settings` WRITE;
 /*!40000 ALTER TABLE `settings` DISABLE KEYS */;
-INSERT INTO `settings` VALUES (101,0,26,'low','energySaving','cooling'),(102,0,26,'low','energySaving','cooling'),(103,0,26,'low','energySaving','cooling'),(104,0,26,'low','energySaving','cooling'),(105,0,26,'low','energySaving','cooling'),(106,0,26,'low','energySaving','cooling'),(107,0,26,'low','energySaving','cooling'),(108,0,26,'low','energySaving','cooling'),(109,0,26,'low','energySaving','cooling'),(110,0,26,'low','energySaving','cooling');
-/*!40000 ALTER TABLE `settings` ENABLE KEYS */;
+INSERT INTO `settings` VALUES 
+(101, 21, 'off', 26, '低', '制冷', '关', 11.00, 21.00),
+(102, 22, 'off', 26, '低', '制冷', '关', 12.00, 22.00),
+(103, 23, 'off', 26, '低', '制冷', '关', 13.00, 23.00),
+(104, 24, 'off', 26, '低', '制冷', '关', 14.00, 24.00),
+(105, 25, 'off', 26, '低', '制冷', '关', 15.00, 25.00),
+(106, 26, 'off', 26, '低', '制冷', '关', 16.00, 26.00),
+(107, 27, 'off', 26, '低', '制冷', '关', 17.00, 27.00),
+(108, 28, 'off', 26, '低', '制冷', '关', 18.00, 28.00),
+(109, 29, 'off', 26, '低', '制冷', '关', 19.00, 29.00),
+(110, 30, 'off', 26, '低', '制冷', '关', 20.00, 30.00);
+
 UNLOCK TABLES;
 
 --

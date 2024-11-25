@@ -65,25 +65,56 @@ app.post('/api/login', (req, res) => {
 });
 
 // 获取当前房间设置 (GET)，通过房间号 id 作为参数
-app.get('/api/controlPanelSettings/:id', (req, res) => {
-    const roomId = req.params.id; // 从请求参数中获取房间号
-    const sql = 'SELECT * FROM settings WHERE id = ?'; // 根据房间号获取设置
-    pool.query(sql, [roomId], (err, result) => {
+app.get('/api/controlPanelSettings', (req, res) => {
+  const roomId = req.query.roomId; // 从查询参数中获取房间号
+  // 检查是否提供了房间号
+  if (!roomId) {
+      return res.json({
+          code: 400,
+          message: '缺少房间号参数',
+          data: null
+      });
+  }
+  const sql = 'SELECT * FROM settings WHERE roomId = ?';
+  pool.query(sql, [roomId], (err, result) => {
       if (err) {
-        console.error(err);
-        return res.status(500).send('服务器错误');
+          console.error(err);
+          return res.json({
+              code: 500,
+              message: '服务器错误',
+              data: null
+          });
       }
       if (result.length > 0) {
-        res.json(result[0]); // 返回该房间的设置
+          // 找到房间设置
+          return res.json({
+              code: 0,
+              message: '操作成功',
+              data: {
+                  roomTemperature: result[0].roomTemperature,
+                  power: result[0].power,
+                  temperature: result[0].temperature,
+                  windSpeed: result[0].windSpeed,
+                  mode: result[0].mode,
+                  sweep: result[0].sweep,
+                  cost: Number(result[0].cost).toFixed(2), // 确保cost保留两位小数
+                  totalCost: Number(result[0].totalCost).toFixed(2) // 确保totalCost保留两位小数
+              }
+          });
       } else {
-        res.status(404).send('未找到该房间的设置');
+          // 未找到房间设置
+          return res.json({
+              code: 404,
+              message: '未找到该房间的设置',
+              data: null
+          });
       }
-    });
   });
+});
   
   // 上传当前设置并记录历史
-  app.post('/api/controlPanelSettings/:id', (req, res) => {
-    const roomId = req.params.id;
+  app.post('/api/controlPanelSettings/:roomId', (req, res) => {
+    const roomId = req.params.roomId;
     const newSettings = req.body;
 
   // app.post('/api/controlPanelSettings', (req, res) => {
@@ -114,7 +145,7 @@ app.get('/api/controlPanelSettings/:id', (req, res) => {
     const sqlUpdateSettings = `
       UPDATE settings 
       SET ${updateFields.join(', ')} 
-      WHERE id = ?
+      WHERE roomId = ?
     `;
   
     // 执行更新设置
@@ -285,7 +316,7 @@ app.post('/api/checkout/:roomId', (req, res) => {
             }
 
             // 4. 更新 settings 表，将空调状态设为默认值
-            const sqlUpdateSettings = 'UPDATE settings SET isOn = false, temperature = 26, windSpeed = "low", mode = "energySaving", coolingHeatingMode = "cooling" WHERE id = ?';
+            const sqlUpdateSettings = 'UPDATE settings SET power = "off", temperature = 26, windSpeed = "低", mode = "制冷", sweep = "关" WHERE roomId = ?';
             connection.query(sqlUpdateSettings, [roomId], (err) => {
               if (err) {
                 console.error('更新空调状态失败:', err);

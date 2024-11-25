@@ -4,72 +4,91 @@ import { PoweroffOutlined } from '@ant-design/icons'; // 添加一个开关图�
 import axios from 'axios';
 import "../App.css"
 import WeatherModule from './WeatherModule'; // 引入天气模块
+import ConsumptionPanel from './ConsumptionPanel'; // 引入计费模块
+
 
 const { Option } = Select;
 const Host = import.meta.env.VITE_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
-const ControlPanelPage = () => {
-  const [isOn, setIsOn] = useState(false); // 开关状态
-  const [temperature, setTemperature] = useState(26); // 温度初始为26度（节能模式）
-  const [windSpeed, setWindSpeed] = useState('low'); // 风速初始为低（节能模式）
-  const [coolingHeatingMode, setCoolingHeatingMode] = useState('cooling'); // 制冷或制热模式
 
+const ControlPanelPage = () => {
+  const [roomTemperature, setRoomTemperature] = useState(24); // 温度初始为24度
+  const [power, setPower] = useState(false); // 开关状态
+  const [temperature, setTemperature] = useState(26); // 温度初始为26度
+  const [windSpeed, setWindSpeed] = useState('低'); // 风速初始为低
+  const [mode, setMode] = useState('制冷'); // 制冷或制热模式
   const [sweep, setSweep] = useState(false);
+  const [cost, setCost] = useState(12.06);
+  const [totalCost, setTotalCost] = useState(24.12);
 
   const snowflakeContainer = useRef(null);  // 用于获取雪花的容器引用
 
-  const id = localStorage.getItem('roomId');
+  const roomId = localStorage.getItem('roomId');
 
   // 页面加载时从数据库获取当前的设置
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await axios.get(`http://${Host}:${Port}/api/controlPanelSettings/` + id);
+        // 使用查询参数的方式请求 API
+        const response = await axios.get(`http://${Host}:${Port}/api/controlPanelSettings`, {
+          params: {
+            roomId: roomId
+          }
+        });
         const settings = response.data;
 
         // 检查是否有返回的设置
         if (settings) {
-          setIsOn(!!settings.isOn);
+          setRoomTemperature(settings.roomTemperature || 24); // 使用数据库值或默认值
+          setPower(settings.power === 'on');
           setTemperature(settings.temperature || 26); // 使用数据库值或默认值
-          setWindSpeed(settings.windSpeed || 'low');
-          setCoolingHeatingMode(settings.coolingHeatingMode || 'cooling');
-          setSweep(settings.sweep === 'on'); // 将枚举值转换为布尔值
+          setWindSpeed(settings.windSpeed || '低');
+          setMode(settings.mode || '制冷');
+          setSweep(settings.sweep === '开'); // 将枚举值转换为布尔值
+          setCost(settings.cost || 12.06);
+          setTotalCost(settings.totalCost || 24.12);
         } else {
           // 如果没有从数据库中获取到设置，可以在这里设置默认值
-          setIsOn(false);
+          setRoomTemperature(24);
+          setPower(false);
           setTemperature(26);
-          setWindSpeed('low');
-          setCoolingHeatingMode('cooling');
+          setWindSpeed('低');
+          setMode('制冷');
           setSweep(false);
+          setCost(12.06);
+          setTotalCost(24.12);
         }
       } catch (error) {
         message.error('获取设置失败，使用默认设置');
         // 数据获取失败时，使用默认值
-        setIsOn(false);
+        setRoomTemperature(24);
+        setPower(false);
         setTemperature(26);
-        setWindSpeed('low')
-        setCoolingHeatingMode('cooling');
+        setWindSpeed('低')
+        setMode('制冷');
         setSweep(false);
+        setCost(12.06);
+        setTotalCost(24.12);
       }
     };
 
     fetchSettings();
-  }, [id]);  // 每当 id 改变时，重新获取设置
+  }, [roomId]);  // 每当 id 改变时，重新获取设置
   // 动态生成雪花
   useEffect(() => {
     const container = snowflakeContainer.current;
 
-    if (isOn && coolingHeatingMode === 'cooling') {
+    if (power && mode === '制冷') {
       // 创建生成雪花的定时器
       const snowflakeInterval = setInterval(() => {
         let targetCount = 20; // 默认雪花数量
 
-        if (windSpeed === 'low') {
+        if (windSpeed === '低') {
           targetCount = 30; // 风速低时的雪花数量
-        } else if (windSpeed === 'medium') {
+        } else if (windSpeed === '中') {
           targetCount = 60; // 风速中等时的雪花数量
-        } else if (windSpeed === 'high') {
+        } else if (windSpeed === '高') {
           targetCount = 120; // 风速高时的雪花数量
         }
 
@@ -137,13 +156,13 @@ const ControlPanelPage = () => {
         }
       }, 100); // 每100ms移除一个雪花，创建一个平滑的减少效果
     }
-  }, [isOn, coolingHeatingMode, windSpeed]);
+  }, [power, mode, windSpeed]);
 
 
 
   // 实时更新数据库中的设置
   const updateSettings = (newSettings) => {
-    axios.post(`http://${Host}:${Port}/api/controlPanelSettings/` + id, newSettings)
+    axios.post(`http://${Host}:${Port}/api/controlPanelSettings/` + roomId, newSettings)
       .then(() => {
         message.success('设置已更新');
       })
@@ -154,36 +173,12 @@ const ControlPanelPage = () => {
   };
 
 
-  // const updateSettings = (newSettings) => {
-  //   const allSettings = {
-  //     'roomId': id,
-  //     isOn: isOn,
-  //     temperature: temperature,
-  //     windSpeed: windSpeed,
-  //     coolingHeatingMode: coolingHeatingMode,
-  //     sweep: sweep ? 'on' : 'off',
-  //     ...newSettings  // 覆盖变更的设置
-  //   };
-  //   axios.post(`http://${Host}:${Port}/api/controlPanelSettings/`, allSettings)
-  //     .then(() => {
-  //       message.success('设置已更新');
-  //     })
-  //     .catch(error => {
-  //       message.error('更新设置失败');
-  //       console.error(error);
-  //     });
-  // };
-  
+
   // 开关控制，如果获取不到数据库，则开机时默认切换到节能模式
   const handleSwitch = (checked) => {
-    setIsOn(checked);
+    setPower(checked);
     const newSettings = {
-      isOn: checked,
-      
-      temperature: temperature || 26,
-      windSpeed: windSpeed || 'low',
-      coolingHeatingMode: coolingHeatingMode || 'cooling',
-      sweep: value ? 'on' : 'off',  // 将布尔值转换为枚举值
+      power: checked ? 'on' : 'off',
     };
     updateSettings(newSettings); // 实时更新数据库
   };
@@ -214,19 +209,19 @@ const ControlPanelPage = () => {
 
   // 设置制冷或制热模式
   const handleCoolingHeatingChange = (value) => {
-    setCoolingHeatingMode(value);
+    setMode(value);
     let newSettings = {
-      coolingHeatingMode: value,
+      mode: value,
     };
     updateSettings(newSettings);
   };
 
 
-  // 设置制冷或制热模式
+  // 设置扫风模式
   const handleSweep = (value) => {
     setSweep(value);
     let newSettings = {
-      sweep: value ? 'on' : 'off',  // 将布尔值转换为枚举值
+      sweep: value ? '开' : '关',  // 将布尔值转换为枚举值
     };
 
     updateSettings(newSettings);
@@ -234,11 +229,11 @@ const ControlPanelPage = () => {
 
   // 根据空调状态（开/关、制冷/制热）动态改变背景颜色
   const getBackgroundStyle = () => {
-    if (!isOn) {
+    if (!power) {
       return {
         background: 'linear-gradient(to right, #e0e0e0, #cfcfcf)'
       };
-    } else if (coolingHeatingMode === 'heating') {
+    } else if (mode === '制热') {
       return {
         background: 'linear-gradient(to right, #ff7e5f, #feb47b)',
         transition: 'background 1.5s ease-in-out'
@@ -265,7 +260,7 @@ const ControlPanelPage = () => {
         zIndex: 1,
         pointerEvents: 'none',
         overflow: 'hidden',
-        opacity: isOn && coolingHeatingMode === 'cooling' ? 1 : 0, // 控制雪花是否显示
+        opacity: power && mode === '制冷' ? 1 : 0, // 控制雪花是否显示
         transition: 'opacity 1s ease' // 平滑过渡显示与隐藏
       }}>
         <div className="snowflake">
@@ -275,7 +270,7 @@ const ControlPanelPage = () => {
       </div>
 
       {/* 低风速制热模式下的热浪线条 */}
-      {isOn && coolingHeatingMode === 'heating' && windSpeed === 'low' && (
+      {power && mode === '制热' && windSpeed === '低' && (
         <>
           <div className="heat-wave-line-normal" style={{ top: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
           <div className="heat-wave-line-normal" style={{ top: '35px', zIndex: 1, pointerEvents: 'none' }}></div>
@@ -286,7 +281,7 @@ const ControlPanelPage = () => {
 
 
       {/* 中风速制热模式下的热浪线条 */}
-      {isOn && coolingHeatingMode === 'heating' && windSpeed === 'medium' && (
+      {power && mode === '制热' && windSpeed === '中' && (
         <>
           <div className="heat-wave-line-strong" style={{ top: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
           <div className="heat-wave-line-strong" style={{ top: '40px', zIndex: 1, pointerEvents: 'none' }}></div>
@@ -298,7 +293,7 @@ const ControlPanelPage = () => {
       )}
 
       {/* 高风速制热模式下的热浪线条 */}
-      {isOn && coolingHeatingMode === 'heating' && windSpeed === 'high' && (
+      {power && mode === '制热' && windSpeed === '高' && (
         <>
           <div className="heat-wave-line-strong" style={{ top: '20px', zIndex: 1, pointerEvents: 'none' }}></div>
           <div className="heat-wave-line-strong" style={{ top: '40px', zIndex: 1, pointerEvents: 'none' }}></div>
@@ -352,10 +347,10 @@ const ControlPanelPage = () => {
             bordered={false}
             style={{
               width: '100%',
-              backgroundColor: isOn ? 'rgba(255, 255, 255, 0.9)' : 'rgba(180, 180, 180, 0.3)', // 空调关闭时变暗
+              backgroundColor: power ? 'rgba(255, 255, 255, 0.9)' : 'rgba(180, 180, 180, 0.3)', // 空调关闭时变暗
               borderRadius: '15px', // 让卡片有圆角效果，增加柔和感
               padding: '10px', // 让内容有更多内边距，看起来更宽敞
-              filter: isOn ? 'none' : 'brightness(0.7)', // 关闭时降低亮度
+              filter: power ? 'none' : 'brightness(0.7)', // 关闭时降低亮度
               transition: 'background-color 0.5s ease, filter 0.5s ease', // 添加过渡效果
               zIndex: 2  // 添加更高的 z-index
             }}
@@ -371,7 +366,7 @@ const ControlPanelPage = () => {
                     type="circle"
                     percent={(temperature - 16) * (100 / (30 - 16))}
                     format={() => (
-                      isOn ? ( // 只在开机状态显示温度信息
+                      power ? ( // 只在开机状态显示温度信息
                         <div style={{
                           display: 'flex',
                           flexDirection: 'column',
@@ -390,7 +385,7 @@ const ControlPanelPage = () => {
                             color: '#000000d9',
                             lineHeight: '1'
                           }}>
-                            24°C
+                            {roomTemperature}°C
                           </span>
                           <span style={{
                             fontSize: '12px',
@@ -411,8 +406,8 @@ const ControlPanelPage = () => {
                     )}
                     width={130}
                     strokeColor={
-                      isOn
-                        ? (coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d')
+                      power
+                        ? (mode === '制冷' ? '#1890ff' : '#f5222d')
                         : 'rgba(128, 128, 128, 0.5)'
                     }
                   />
@@ -421,7 +416,7 @@ const ControlPanelPage = () => {
                   <WeatherModule />
 
                   {/* 图标在空调开启时才显示 */}
-                  {isOn && (
+                  {power && (
                     <>
                       {/* 制冷/制热图标，放在进度条的左上角 */}
                       <div style={{
@@ -429,7 +424,7 @@ const ControlPanelPage = () => {
                         top: '12px',
                         left: '-38px',
                       }}>
-                        {coolingHeatingMode === 'cooling' ? (
+                        {mode === '制冷' ? (
                           <i className="fas fa-snowflake" style={{ fontSize: '24px', color: '#1890ff' }}></i>
                         ) : (
                           <i className="fas fa-fire" style={{ fontSize: '24px', color: '#f5222d' }}></i>
@@ -443,27 +438,27 @@ const ControlPanelPage = () => {
                         right: '-38px',
                       }}>
                         {/* 根据制冷或制热模式显示不同的风速图标 */}
-                        {coolingHeatingMode === 'cooling' ? (
+                        {mode === '制冷' ? (
                           <>
-                            {windSpeed === 'low' && (
+                            {windSpeed === '低' && (
                               <img src="/风速1-冷.png" alt="低风速(制冷)" style={{ width: '26px', height: '26px' }} />
                             )}
-                            {windSpeed === 'medium' && (
+                            {windSpeed === '中' && (
                               <img src="/风速2-冷.png" alt="中风速(制冷)" style={{ width: '26px', height: '26px' }} />
                             )}
-                            {windSpeed === 'high' && (
+                            {windSpeed === '高' && (
                               <img src="/风速3-冷.png" alt="高风速(制冷)" style={{ width: '26px', height: '26px' }} />
                             )}
                           </>
                         ) : (
                           <>
-                            {windSpeed === 'low' && (
+                            {windSpeed === '低' && (
                               <img src="/风速1-热.png" alt="低风速(制热)" style={{ width: '26px', height: '26px' }} />
                             )}
-                            {windSpeed === 'medium' && (
+                            {windSpeed === '中' && (
                               <img src="/风速2-热.png" alt="中风速(制热)" style={{ width: '26px', height: '26px' }} />
                             )}
-                            {windSpeed === 'high' && (
+                            {windSpeed === '高' && (
                               <img src="/风速3-热.png" alt="高风速(制热)" style={{ width: '26px', height: '26px' }} />
                             )}
                           </>
@@ -486,11 +481,11 @@ const ControlPanelPage = () => {
               <Col>
                 <Button
                   type="primary"
-                  onClick={() => handleSwitch(!isOn)}  // 点击按钮时，切换开关状态
+                  onClick={() => handleSwitch(!power)}  // 点击按钮时，切换开关状态
                   icon={<PoweroffOutlined />}  // 添加电源图标
                   style={{
-                    backgroundColor: isOn ? '#d32f2f' : '#1890ff',  // 根据状态设置颜色
-                    borderColor: isOn ? '#d32f2f' : '#1890ff',
+                    backgroundColor: power ? '#d32f2f' : '#1890ff',  // 根据状态设置颜色
+                    borderColor: power ? '#d32f2f' : '#1890ff',
                     color: '#fff',
                     width: '80px',  // 设定宽度
                     height: '60px',  // 设定高度和宽度一致
@@ -500,7 +495,7 @@ const ControlPanelPage = () => {
                     alignItems: 'center',
                   }}
                 >
-                  {isOn ? '关' : '开'} {/* 根据状态显示文字 */}
+                  {power ? '关' : '开'} {/* 根据状态显示文字 */}
                 </Button>
               </Col>
             </Row>
@@ -513,8 +508,8 @@ const ControlPanelPage = () => {
               justify="space-between"
               style={{
                 marginBottom: '24px',
-                opacity: isOn ? 1 : 0,  // 使用 opacity 控制可见性
-                pointerEvents: isOn ? 'auto' : 'none',  // 当 isOn 为 false 时禁用交互
+                opacity: power ? 1 : 0,  // 使用 opacity 控制可见性
+                pointerEvents: power ? 'auto' : 'none',  // 当 power 为 false 时禁用交互
                 transition: 'opacity 0.3s ease',  // 添加平滑的过渡效果
               }}
             >
@@ -524,22 +519,22 @@ const ControlPanelPage = () => {
               <Col>
                 <Button.Group>
                   <Button
-                    type={coolingHeatingMode === 'cooling' ? 'primary' : 'default'}
+                    type={mode === '制冷' ? 'primary' : 'default'}
                     style={{
-                      backgroundColor: coolingHeatingMode === 'cooling' ? '#1890ff' : '#fff', // 蓝色
-                      color: coolingHeatingMode === 'cooling' ? '#fff' : '#000', // 文字颜色
+                      backgroundColor: mode === '制冷' ? '#1890ff' : '#fff', // 蓝色
+                      color: mode === '制冷' ? '#fff' : '#000', // 文字颜色
                     }}
-                    onClick={() => handleCoolingHeatingChange('cooling')}
+                    onClick={() => handleCoolingHeatingChange('制冷')}
                   >
                     制冷
                   </Button>
                   <Button
-                    type={coolingHeatingMode === 'heating' ? 'primary' : 'default'}
+                    type={mode === '制热' ? 'primary' : 'default'}
                     style={{
-                      backgroundColor: coolingHeatingMode === 'heating' ? '#f5222d' : '#fff', // 红色
-                      color: coolingHeatingMode === 'heating' ? '#fff' : '#000', // 文字颜色
+                      backgroundColor: mode === '制热' ? '#f5222d' : '#fff', // 红色
+                      color: mode === '制热' ? '#fff' : '#000', // 文字颜色
                     }}
-                    onClick={() => handleCoolingHeatingChange('heating')}
+                    onClick={() => handleCoolingHeatingChange('制热')}
                   >
                     制热
                   </Button>
@@ -554,8 +549,8 @@ const ControlPanelPage = () => {
               justify="space-between"
               style={{
                 marginBottom: '24px',
-                opacity: isOn ? 1 : 0,
-                pointerEvents: isOn ? 'auto' : 'none',
+                opacity: power ? 1 : 0,
+                pointerEvents: power ? 'auto' : 'none',
                 transition: 'opacity 0.3s ease',
               }}
             >
@@ -581,8 +576,8 @@ const ControlPanelPage = () => {
               justify="space-between"
               style={{
                 marginBottom: '24px',
-                opacity: isOn ? 1 : 0,
-                pointerEvents: isOn ? 'auto' : 'none',
+                opacity: power ? 1 : 0,
+                pointerEvents: power ? 'auto' : 'none',
                 transition: 'opacity 0.3s ease',
               }}
             >
@@ -592,20 +587,20 @@ const ControlPanelPage = () => {
               <Col justify="end">
                 <Button.Group>
                   <Button
-                    type={windSpeed === 'low' ? 'primary' : 'default'}
-                    onClick={() => handleWindSpeedChange('low')}
+                    type={windSpeed === '低' ? 'primary' : 'default'}
+                    onClick={() => handleWindSpeedChange('低')}
                   >
                     低
                   </Button>
                   <Button
-                    type={windSpeed === 'medium' ? 'primary' : 'default'}
-                    onClick={() => handleWindSpeedChange('medium')}
+                    type={windSpeed === '中' ? 'primary' : 'default'}
+                    onClick={() => handleWindSpeedChange('中')}
                   >
                     中
                   </Button>
                   <Button
-                    type={windSpeed === 'high' ? 'primary' : 'default'}
-                    onClick={() => handleWindSpeedChange('high')}
+                    type={windSpeed === '高' ? 'primary' : 'default'}
+                    onClick={() => handleWindSpeedChange('高')}
                   >
                     高
                   </Button>
@@ -620,8 +615,8 @@ const ControlPanelPage = () => {
               justify="space-between"
               style={{
                 marginBottom: '24px',
-                opacity: isOn ? 1 : 0,
-                pointerEvents: isOn ? 'auto' : 'none',
+                opacity: power ? 1 : 0,
+                pointerEvents: power ? 'auto' : 'none',
                 transition: 'opacity 0.3s ease',
               }}
             >
@@ -633,125 +628,14 @@ const ControlPanelPage = () => {
                   checked={sweep}
                   onChange={(checked) => handleSweep(checked)}
                   style={{
-                    backgroundColor: sweep ? (coolingHeatingMode === 'cooling' ? '#1890ff' : '#f5222d') : 'rgba(0, 0, 0, 0.25)'
+                    backgroundColor: sweep ? (mode === '制冷' ? '#1890ff' : '#f5222d') : 'rgba(0, 0, 0, 0.25)'
                   }}
                 />
               </Col>
             </Row>
 
-            {/* 消费金额和电量模块 */}
-            <Row gutter={16} align="middle">
-              <Col span={12}>
-                <div style={{
-                  padding: '20px',
-                  backgroundColor: 'white',
-                  borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                  border: '1px solid #f0f0f0',
-                }}>
-                  <div style={{
-                    fontSize: '13px',
-                    color: '#8c8c8c',
-                    marginBottom: '8px',
-                    fontWeight: '500'
-                  }}>
-                    总消费金额
-                  </div>
-                  <div style={{
-                    fontSize: '26px',
-                    color: '#1890ff',
-                    fontWeight: 'bold',
-                    lineHeight: '1.2'
-                  }}>
-                    ¥ 128.50
-                  </div>
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#8c8c8c',
-                      marginBottom: '4px'
-                    }}>
-                      最近一次消费
-                    </div>
-                    <div>
-                      <span style={{
-                        color: '#52c41a',
-                        fontSize: '15px',
-                        fontWeight: '500'
-                      }}>
-                        ¥ 12.50
-                      </span>
-                      <span style={{
-                        fontSize: '12px',
-                        color: '#bfbfbf',
-                        marginLeft: '8px'
-                      }}>
-                        (2小时前)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Col>
-
-              <Col span={12}>
-                <div style={{
-                  padding: '20px',
-                  backgroundColor: 'white',
-                  borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                  border: '1px solid #f0f0f0',
-                }}>
-                  <div style={{
-                    fontSize: '13px',
-                    color: '#8c8c8c',
-                    marginBottom: '8px',
-                    fontWeight: '500'
-                  }}>
-                    总耗电量
-                  </div>
-                  <div style={{
-                    fontSize: '26px',
-                    color: '#1890ff',
-                    fontWeight: 'bold',
-                    lineHeight: '1.2'
-                  }}>
-                    168.2
-                    <span style={{
-                      fontSize: '16px',
-                      marginLeft: '4px',
-                      fontWeight: '500'
-                    }}>
-                      kW·h
-                    </span>
-                  </div>
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#8c8c8c',
-                      marginBottom: '4px'
-                    }}>
-                      最近耗电量
-                    </div>
-                    <div>
-                      <span style={{
-                        color: '#52c41a',
-                        fontSize: '15px',
-                        fontWeight: '500'
-                      }}>
-                        1.5 kW·h
-                      </span>
-                      <span style={{
-                        fontSize: '12px',
-                        color: '#bfbfbf',
-                        marginLeft: '8px'
-                      }}>
-                        (2小时前)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Col>
-            </Row>
+            {/* 显示消费金额和电量 */}
+            <ConsumptionPanel cost={cost} totalCost={totalCost} />
 
           </Card>
         </Col>
