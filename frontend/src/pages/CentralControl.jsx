@@ -34,70 +34,73 @@ const CentralControl = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [roomsRes, settingsRes] = await Promise.all([
-          axios.get(`http://${Host}:${Port}/api/rooms`),
-          axios.get(`http://${Host}:${Port}/api/settings`),
-        ]);
+        const response = await axios.post(`http://${Host}:${Port}/api/rooms/details`);
 
-        const combinedData = roomsRes.data.map((room) => {
-          const setting = settingsRes.data.find((s) => s.id === room.roomId);
-          return {
+        if (response.data.code === 0) {
+          // 处理每条记录，确保数值类型正确
+          const processedData = response.data.data.map(room => ({
             roomId: room.roomId,
-            checkedIn: room.checkedIn,
-            airConditionerOn: setting ? setting.isOn : false,
-            mode: setting ? setting.mode : 'N/A',
-            temperature: setting ? setting.temperature : 0,
-            coolingHeatingMode: setting ? setting.coolingHeatingMode : 'N/A',
-            totalFee: room.checkedIn ? 0 : 0,
-          };
-        });
-
-        setRoomData(combinedData);
+            checkedIn: room.checkedIn ?? false,
+            power: room.power === 'on',
+            mode: room.mode,
+            roomTemperature: parseInt(room.roomTemperature),
+            temperature: parseInt(room.temperature),
+            totalFee: parseFloat(room.totalCost).toFixed(2),
+            checkedIn: room.checkedIn
+          }));
+          setRoomData(processedData);
+        } else {
+          message.error(response.data.message || '获取房间数据失败');
+        }
         setLoading(false);
       } catch (error) {
         message.error('获取房间数据失败');
         console.error('数据获取错误:', error);
+        setLoading(false);
       }
     };
 
     fetchData();
   }, []);
 
-  const calculateTotalFee = async (roomId) => {
-    try {
-      const res = await axios.get(`http://${Host}:${Port}/api/calculateFee/${roomId}`);
-      return res.data.totalFee;
-    } catch (error) {
-      console.error('费用获取错误:', error);
-      return 0;
-    }
-  };
 
-  useEffect(() => {
-    const updateRoomDataWithFees = async () => {
-      const updatedData = await Promise.all(
-        roomData.map(async (room) => {
-          if (room.checkedIn) {
-            const fee = await calculateTotalFee(room.roomId);
-            return { ...room, totalFee: fee };
-          }
-          return { ...room, totalFee: 0 };
-        })
-      );
-      setRoomData(updatedData);
-    };
+  // const calculateTotalFee = async (roomId) => {
+  //   try {
+  //     const res = await axios.get(`http://${Host}:${Port}/api/calculateFee/${roomId}`);
+  //     return res.data.totalFee;
+  //   } catch (error) {
+  //     console.error('费用获取错误:', error);
+  //     return 0;
+  //   }
+  // };
 
-    if (!loading && roomData.length > 0) {
-      updateRoomDataWithFees();
-    }
-  }, [loading]);
+  // useEffect(() => {
+  //   const updateRoomDataWithFees = async () => {
+  //     const updatedData = await Promise.all(
+  //       roomData.map(async (room) => {
+  //         if (room.checkedIn) {
+  //           const fee = await calculateTotalFee(room.roomId);
+  //           return { ...room, totalFee: fee };
+  //         }
+  //         return { ...room, totalFee: 0 };
+  //       })
+  //     );
+  //     setRoomData(updatedData);
+  //   };
+
+  //   if (!loading && roomData.length > 0) {
+  //     updateRoomDataWithFees();
+  //   }
+  // }, [loading]);
 
   const columns = [
     {
       title: '房间号',
       dataIndex: 'roomId',
       key: 'roomId',
+      width: 120, // 设置列宽
       align: 'center',
+      className: 'text-base font-medium',
       render: (roomId) => (
         <Tag className="bg-blue-100 text-blue-800 border-0 text-base px-3 py-1">{roomId}</Tag>
       ),
@@ -106,72 +109,95 @@ const CentralControl = () => {
       title: '是否入住',
       dataIndex: 'checkedIn',
       key: 'checkedIn',
+      width: 120, // 设置列宽
       align: 'center',
+      className: 'text-base font-medium',
       render: (checkedIn) =>
         checkedIn ? (
-          <Tag icon={<CheckCircleOutlined />} className="bg-green-100 text-green-800 border-0">
+          <Tag icon={<CheckCircleOutlined />} className="bg-green-100 text-green-800 border-0 text-base px-3 py-1">
             已入住
           </Tag>
         ) : (
-          <Tag icon={<CloseCircleOutlined />} className="bg-gray-100 text-gray-800 border-0">
+          <Tag icon={<CloseCircleOutlined />} className="bg-gray-100 text-gray-800 border-0 text-base px-3 py-1">
             空闲房间
           </Tag>
         ),
     },
     {
       title: '空调开关',
-      dataIndex: 'airConditionerOn',
-      key: 'airConditionerOn',
+      dataIndex: 'power',
+      key: 'power',
+      width: 120, // 设置列宽
       align: 'center',
-      render: (airConditionerOn) =>
-        airConditionerOn ? (
-          <Tag icon={<PoweroffOutlined />} className="bg-blue-100 text-blue-800 border-0">
-            On
+      className: 'text-base font-medium',
+      render: (power) =>
+        power ? (
+          <Tag icon={<PoweroffOutlined />} className="bg-blue-100 text-blue-800 border-0 text-base px-3 py-1">
+            开启
           </Tag>
         ) : (
-          <Tag icon={<PoweroffOutlined />} className="bg-gray-100 text-gray-800 border-0">
-            Off
+          <Tag icon={<PoweroffOutlined />} className="bg-gray-100 text-gray-800 border-0 text-base px-3 py-1">
+            关闭
           </Tag>
         ),
     },
     {
       title: '模式',
-      dataIndex: 'coolingHeatingMode',
-      key: 'coolingHeatingMode',
+      dataIndex: 'mode',
+      key: 'mode',
+      width: 100, // 设置列宽
       align: 'center',
-      render: (coolingHeatingMode) => {
-        const modeMap = {
-          cooling: '制冷',
-          heating: '制热',
-        };
-        return (
-          <Tag
-            className={
-              coolingHeatingMode === 'cooling' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
-            }
-          >
-            {modeMap[coolingHeatingMode] || ''}
-          </Tag>
-        );
-      },
+      className: 'text-base font-medium',
+      render: (mode) => (
+        <Tag
+          className={`${mode === '制冷' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+            } text-base px-3 py-1 border-0`}
+        >
+          {mode}
+        </Tag>
+      ),
+    },
+    {
+      title: '房间温度',
+      dataIndex: 'roomTemperature',
+      key: 'roomTemperature',
+      width: 100, // 设置列宽
+      align: 'center',
+      className: 'text-base font-medium',
+      render: (temp) => <span className="text-base">{temp}°C</span>,
+    },
+    {
+      title: '目标温度',
+      dataIndex: 'temperature',
+      key: 'temperature',
+      width: 100, // 设置列宽
+      align: 'center',
+      className: 'text-base font-medium',
+      render: (temp) => <span className="text-base">{temp}°C</span>,
     },
     {
       title: '累计费用 (¥)',
       dataIndex: 'totalFee',
       key: 'totalFee',
+      width: 120, // 设置列宽
       align: 'center',
-      render: (totalFee) => `${totalFee} ¥`,
+      className: 'text-base font-medium',
+      render: (totalFee) => <span className="text-base">{totalFee} ¥</span>,
     },
     {
       title: '功能',
       key: 'operation',
+      width: 120, // 设置列宽
+      fixed: 'right', // 可以固定在右侧
       align: 'center',
+      className: 'text-base font-medium',
       render: (_, record) => (
         <Space size="middle">
           <Tooltip title="查看详情">
             <Button
               type="primary"
               shape="circle"
+              size="middle"
               icon={<EyeOutlined />}
               onClick={() => {
                 localStorage.setItem('roomId', record.roomId);
@@ -183,6 +209,7 @@ const CentralControl = () => {
             <Button
               type="default"
               shape="circle"
+              size="middle"
               icon={<EditOutlined />}
               onClick={() => {
                 localStorage.setItem('roomId', record.roomId);

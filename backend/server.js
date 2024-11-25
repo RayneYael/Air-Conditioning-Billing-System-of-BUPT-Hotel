@@ -197,7 +197,7 @@ app.post('/api/controlPanelSettings', (req, res) => {
 
     // 记录设置更新的历史
     const startTime = moment().format('YYYY-MM-DD HH:mm:ss');
-    const costPerHour = newSettings.power === 'false' ? 0 : calculateCostPerHour(newSettings.mode || '', newSettings.windSpeed || '');
+    const costPerHour = newSettings.power === 'false' ? 0 : calculateCostPerHour(newSettings.windSpeed || '');
     const changedSetting = changedSettingEntries.join(', ');
 
     const sqlInsertHistory = `
@@ -224,19 +224,19 @@ app.post('/api/controlPanelSettings', (req, res) => {
       res.json({
         code: 0,
         message: '设置已更新并记录到历史',
-        data: {
-          roomId,
-          ...newSettings,
-          updateTime: startTime,
-          costPerHour
-        }
+        // data: {
+        //   roomId,
+        //   ...newSettings,
+        //   updateTime: startTime,
+        //   costPerHour
+        // }
       });
     });
   });
 });
 
 
-app.get('/api/feeDetails/:roomId', (req, res) => {
+app.get('/api/feeDetails/', (req, res) => {
   const roomId = req.params.roomId;
 
   const sql = 'SELECT * FROM settings_history WHERE roomId = ?';
@@ -252,7 +252,7 @@ app.get('/api/feeDetails/:roomId', (req, res) => {
 });
 
 // 计算每小时费用的逻辑（根据模式、风速等）
-function calculateCostPerHour(mode, windSpeed) {
+function calculateCostPerHour(windSpeed) {
   let costPerHour = 5; // 基础费用
   if (windSpeed === '高') {
     costPerHour += 5; // 高风速增加额外费用
@@ -263,16 +263,91 @@ function calculateCostPerHour(mode, windSpeed) {
 }
 
 // 获取所有房间的数据
-app.get('/api/rooms', (req, res) => {
-  const sql = 'SELECT * FROM rooms'; // 查询所有房间数据
+app.post('/api/rooms', (req, res) => {
+  const sql = `
+    SELECT 
+      r.roomId,
+      r.roomLevel,
+      r.cost,
+      DATE_FORMAT(r.checkInTime, '%Y-%m-%dT%H:%i:%s+08:00') as checkInTime,
+      COALESCE(
+        JSON_ARRAYAGG(
+          CASE 
+            WHEN p.peopleId IS NOT NULL 
+            THEN JSON_OBJECT(
+              'peopleId', p.peopleId,
+              'peopleName', p.peopleName
+            )
+            ELSE NULL
+          END
+        ),
+        JSON_ARRAY()
+      ) as people
+    FROM rooms r
+    LEFT JOIN roomPeople rp ON r.roomId = rp.roomId
+    LEFT JOIN people p ON rp.peopleId = p.peopleId
+    GROUP BY r.roomId
+    ORDER BY r.roomId`;
+
   pool.query(sql, (err, result) => {
     if (err) {
       console.error('获取房间数据失败:', err);
-      return res.status(500).send('获取房间数据失败');
+      return res.status(500).json({
+        code: 500,
+        message: '获取房间数据失败',
+        data: null
+      });
     }
-    res.json(result); // 返回查询结果
+
+    try {
+      // 处理每个房间的数据
+      const processedResult = result.map(room => {
+        // 确保 people 是数组
+        let people = [];
+
+        try {
+          // 如果 people 是字符串，尝试解析它
+          if (typeof room.people === 'string') {
+            people = JSON.parse(room.people);
+          } else {
+            people = room.people;
+          }
+
+          // 确保 people 是数组，并过滤掉 null 值
+          people = Array.isArray(people) ? people.filter(person => person !== null) : [];
+
+          // 处理单人情况（如果返回的是单个对象而不是数组）
+          if (!Array.isArray(people) && typeof people === 'object' && people !== null) {
+            people = [people];
+          }
+        } catch (parseError) {
+          console.error('解析 people 数据失败:', parseError);
+          people = [];
+        }
+
+        return {
+          ...room,
+          people
+        };
+      });
+
+      res.json({
+        code: 0,
+        message: '查询成功',
+        data: processedResult
+      });
+    } catch (processError) {
+      console.error('处理房间数据失败:', processError);
+      res.status(500).json({
+        code: 500,
+        message: '处理房间数据失败',
+        data: null
+      });
+    }
   });
 });
+
+
 
 app.get('/api/settings', (req, res) => {
   const sql = 'SELECT * FROM settings'; // 查询所有房间设置数据
@@ -285,56 +360,111 @@ app.get('/api/settings', (req, res) => {
   });
 });
 
-app.post('/api/checkin/:roomId', (req, res) => {
-  const roomId = req.params.roomId;
+app.post('/api/checkIn', (req, res) => {
   const {
-    customerName,
-    checkInTime
+    roomId,
+    peopleName
   } = req.body;
 
-  // 1. 先清空该房间的 settings_history 记录
+  // 参数验证
+  if (!roomId || !peopleName) {
+    return res.json({
+      code: 400,
+      message: '房间号和顾客姓名不能为空'
+    });
+  }
+
+  // 1. 清空该房间的 settings_history 记录
   const sqlDeleteHistory = 'DELETE FROM settings_history WHERE roomId = ?';
   pool.query(sqlDeleteHistory, [roomId], (err) => {
     if (err) {
       console.error('清空历史记录失败:', err);
-      return res.status(500).send('清空历史记录时发生错误');
+      return res.json({
+        code: 500,
+        message: '清空历史记录失败'
+      });
     }
 
-    // 2. 清空成功后，再更新 rooms 表，办理入住
-    const sqlCheckIn = 'UPDATE rooms SET customerName = ?, checkInTime = ?, checkedIn = 1 WHERE roomId = ?';
-    pool.query(sqlCheckIn, [customerName, checkInTime, roomId], (err) => {
+    // 2. 插入顾客信息到 people 表
+    const sqlInsertPeople = 'INSERT INTO people (peopleName) VALUES (?)';
+    pool.query(sqlInsertPeople, [peopleName], (err, peopleResult) => {
       if (err) {
-        console.error('入住失败:', err);
-        return res.status(500).send('办理入住时发生错误');
+        console.error('添加顾客信息失败:', err);
+        return res.json({
+          code: 500,
+          message: '添加顾客信息失败'
+        });
       }
 
-      // 3. 最后返回成功信息
-      res.send('入住成功');
+      const peopleId = peopleResult.insertId;
+
+      // 3. 在 roomPeople 表中建立关联
+      const sqlInsertRoomPeople = 'INSERT INTO roomPeople (roomId, peopleId) VALUES (?, ?)';
+      pool.query(sqlInsertRoomPeople, [roomId, peopleId], (err) => {
+        if (err) {
+          console.error('建立房间顾客关联失败:', err);
+          return res.json({
+            code: 500,
+            message: '建立房间顾客关联失败'
+          });
+        }
+
+        // 4. 更新 rooms 表的入住状态
+        const sqlUpdateRoom = `
+          UPDATE rooms 
+          SET checkInTime = NOW(),
+              checkedIn = 1 
+          WHERE roomId = ?`;
+
+        pool.query(sqlUpdateRoom, [roomId], (err) => {
+          if (err) {
+            console.error('更新房间状态失败:', err);
+            return res.json({
+              code: 500,
+              message: '更新房间状态失败'
+            });
+          }
+
+          res.json({
+            code: 0,
+            message: '顾客添加成功'
+          });
+        });
+      });
     });
   });
 });
 
 
+app.get('/api/checkout', (req, res) => {
+  const roomId = req.query.roomId;
 
-app.post('/api/checkout/:roomId', (req, res) => {
-  const roomId = req.params.roomId;
-
-  // 确保 roomId 为数字类型
-  if (isNaN(roomId)) {
-    return res.status(400).send('无效的房间号');
+  // 参数验证
+  if (!roomId) {
+    return res.json({
+      code: 400,
+      message: '房间号不能为空'
+    });
   }
 
   pool.getConnection((err, connection) => {
     if (err) {
       console.error('获取数据库连接失败:', err);
-      return res.status(500).send('服务器错误');
+      return res.json({
+        code: 500,
+        message: '服务器错误'
+      });
     }
-    // 开启mysql事务，保证数据完整性和一致性，防止数据部分提交
+
+    // 开启事务
     connection.beginTransaction((err) => {
       if (err) {
         console.error('开启事务失败:', err);
         connection.release();
-        return res.status(500).send('服务器错误');
+        return res.json({
+          code: 500,
+          message: '服务器错误'
+        });
       }
 
       // 1. 获取费用详情
@@ -344,59 +474,103 @@ app.post('/api/checkout/:roomId', (req, res) => {
           console.error('获取费用详情失败:', err);
           return connection.rollback(() => {
             connection.release();
-            res.status(500).send('获取费用详情时发生错误');
+            res.json({
+              code: 500,
+              message: '获取费用详情失败'
+            });
           });
         }
 
-        // 2. 删除 settings_history 中的对应记录
+        // 2. 删除该房间的 settings_history 记录
         const sqlDeleteHistory = 'DELETE FROM settings_history WHERE roomId = ?';
         connection.query(sqlDeleteHistory, [roomId], (err) => {
           if (err) {
             console.error('删除费用记录失败:', err);
             return connection.rollback(() => {
               connection.release();
-              res.status(500).send('删除费用记录时发生错误');
+              res.json({
+                code: 500,
+                message: '删除费用记录失败'
+              });
             });
           }
 
-          // 3. 更新 rooms 表，将客户信息和空调费用置空
-          const sqlUpdateRoom = 'UPDATE rooms SET customerName = NULL, checkInTime = NULL, airConditionerFee = 0, checkedIn = 0 WHERE roomId = ?';
-          connection.query(sqlUpdateRoom, [roomId], (err) => {
+          // 3. 删除房间人员关联记录
+          const sqlDeleteRoomPeople = 'DELETE FROM roomPeople WHERE roomId = ?';
+          connection.query(sqlDeleteRoomPeople, [roomId], (err) => {
             if (err) {
-              console.error('重置房间状态失败:', err);
+              console.error('删除房间顾客关联失败:', err);
               return connection.rollback(() => {
                 connection.release();
-                res.status(500).send('重置房间状态时发生错误');
+                res.json({
+                  code: 500,
+                  message: '删除房间顾客关联失败'
+                });
               });
             }
 
-            // 4. 更新 settings 表，将空调状态设为默认值
-            const sqlUpdateSettings = 'UPDATE settings SET power = "off", temperature = 26, windSpeed = "低", mode = "制冷", sweep = "关" WHERE roomId = ?';
-            connection.query(sqlUpdateSettings, [roomId], (err) => {
+            // 4. 更新房间状态
+            const sqlUpdateRoom = `
+              UPDATE rooms 
+              SET checkInTime = NULL,
+                  checkedIn = 0,
+                  cost = 0
+              WHERE roomId = ?`;
+
+            connection.query(sqlUpdateRoom, [roomId], (err) => {
               if (err) {
-                console.error('更新空调状态失败:', err);
+                console.error('更新房间状态失败:', err);
                 return connection.rollback(() => {
                   connection.release();
-                  res.status(500).send('更新空调状态时发生错误');
+                  res.json({
+                    code: 500,
+                    message: '更新房间状态失败'
+                  });
                 });
               }
 
-              // 事务提交
-              connection.commit((err) => {
+              // 5. 更新空调设置为默认值
+              const sqlUpdateSettings = `
+                UPDATE settings 
+                SET power = 'off',
+                    temperature = 26,
+                    windSpeed = '低',
+                    mode = '制冷',
+                    sweep = '关'
+                WHERE roomId = ?`;
+
+              connection.query(sqlUpdateSettings, [roomId], (err) => {
                 if (err) {
-                  console.error('提交事务失败:', err);
+                  console.error('更新空调状态失败:', err);
                   return connection.rollback(() => {
                     connection.release();
-                    res.status(500).send('提交事务时发生错误');
+                    res.json({
+                      code: 500,
+                      message: '更新空调状态失败'
+                    });
                   });
                 }
 
-                // 退房成功后，返回费用详情供前端使用
-                res.send({
-                  message: '退房成功',
-                  feeDetails
+                // 提交事务
+                connection.commit((err) => {
+                  if (err) {
+                    console.error('提交事务失败:', err);
+                    return connection.rollback(() => {
+                      connection.release();
+                      res.json({
+                        code: 500,
+                        message: '提交事务失败'
+                      });
+                    });
+                  }
+
+                  connection.release();
+                  res.json({
+                    code: 0,
+                    message: '退房成功',
+                    feeDetails
+                  });
                 });
-                connection.release();
               });
             });
           });
@@ -405,6 +579,67 @@ app.post('/api/checkout/:roomId', (req, res) => {
     });
   });
 });
+
+// 获取所有房间的详细信息（包括空调设置）
+app.post('/api/rooms/details', (req, res) => {
+  const sql = `
+    SELECT 
+      r.roomId,
+      r.checkedIn,
+      r.checkInTime,
+      s.roomTemperature,
+      s.power,
+      s.temperature,
+      s.windSpeed,
+      s.mode,
+      s.sweep,
+      s.cost,
+      s.totalCost
+    FROM rooms r
+    LEFT JOIN settings s ON r.roomId = s.roomId
+    ORDER BY r.roomId`;
+
+  pool.query(sql, (err, result) => {
+    if (err) {
+      console.error('获取房间数据失败:', err);
+      return res.json({
+        code: 500,
+        message: '获取房间数据失败',
+        data: null
+      });
+    }
+
+    try {
+      // 处理数据，确保数值类型正确，并格式化输出
+      const processedResult = result.map(room => ({
+        roomId: room.roomId,
+        roomTemperature: room.roomTemperature,
+        power: room.power || 'off',
+        temperature: room.temperature || 26,
+        windSpeed: room.windSpeed || '低',
+        mode: room.mode || '制冷',
+        sweep: room.sweep || '关',
+        cost: Number(room.cost || 0).toFixed(2),
+        totalCost: Number(room.totalCost || 0).toFixed(2),
+        checkedIn: room.checkedIn
+      }));
+
+      res.json({
+        code: 0,
+        message: '查询成功',
+        data: processedResult
+      });
+    } catch (processError) {
+      console.error('处理房间数据失败:', processError);
+      res.json({
+        code: 500,
+        message: '处理房间数据失败',
+        data: null
+      });
+    }
+  });
+});
+
 
 // 定义获取费用详情的后端API
 app.get('/api/calculateFee/:roomId', (req, res) => {

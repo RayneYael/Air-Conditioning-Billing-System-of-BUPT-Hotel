@@ -19,15 +19,18 @@
 -- Table structure for table `rooms`
 --
 
+DROP TABLE IF EXISTS `roomPeople`;
+DROP TABLE IF EXISTS `people`;
 DROP TABLE IF EXISTS `rooms`;
+
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `rooms` (
   `roomId` int NOT NULL,
-  `customerName` varchar(45) DEFAULT NULL,
+  `roomLevel` enum('标准间','大床房') NOT NULL,
+  `cost` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
   `checkInTime` datetime DEFAULT NULL,
-  `airConditionerFee` int DEFAULT '0',
-  `checkedIn` tinyint NOT NULL DEFAULT '0',
+  `checkedIn` tinyint NOT NULL DEFAULT 0,
   PRIMARY KEY (`roomId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -38,9 +41,83 @@ CREATE TABLE `rooms` (
 
 LOCK TABLES `rooms` WRITE;
 /*!40000 ALTER TABLE `rooms` DISABLE KEYS */;
-INSERT INTO `rooms` VALUES (101,'徐坤','2024-10-03 17:37:24',0,1),(102,NULL,NULL,0,0),(103,NULL,NULL,0,0),(104,NULL,NULL,0,0),(105,NULL,NULL,0,0),(106,NULL,NULL,0,0),(107,NULL,NULL,0,0),(108,NULL,NULL,0,0),(109,NULL,NULL,0,0),(110,NULL,NULL,0,0);
+INSERT INTO `rooms` VALUES 
+        (2001,'标准间', 0, '2024-11-24T14:00:00+08:00', 1),
+        (2002,'标准间', 0, NULL, 0),
+        (2003,'标准间', 0, NULL, 0),
+        (2004,'标准间', 0, NULL, 0),
+        (2005,'标准间', 0, NULL, 0),
+        (2006,'标准间', 0, NULL, 0),
+        (2007,'标准间', 0, NULL, 0),
+        (2008,'标准间', 0, NULL, 0),
+        (2009,'标准间', 0, NULL, 0),
+        (2010,'标准间', 0, NULL, 0),
+        (3001,'标准间', 0, NULL, 0),
+        (3002,'标准间', 0, NULL, 0),
+        (3003,'标准间', 0, NULL, 0),
+        (3004,'标准间', 0, NULL, 0),
+        (3005,'标准间', 0, NULL, 0),
+        (3006,'标准间', 0, NULL, 0),
+        (3007,'标准间', 0, NULL, 0),
+        (3008,'标准间', 0, NULL, 0),
+        (3009,'标准间', 0, NULL, 0),
+        (3010,'标准间', 0, NULL, 0),
+        (4001,'标准间', 0, NULL, 0),
+        (4002,'标准间', 0, NULL, 0),
+        (4003,'标准间', 0, NULL, 0),
+        (4004,'标准间', 0, NULL, 0),
+        (4005,'标准间', 0, NULL, 0),
+        (4006,'标准间', 0, NULL, 0),
+        (4007,'标准间', 0, NULL, 0),
+        (4008,'标准间', 0, NULL, 0),
+        (4009,'标准间', 0, NULL, 0),
+        (4010,'标准间', 0, NULL, 0),
+        (5001,'大床房', 0, NULL, 0),
+        (5002,'大床房', 0, NULL, 0),
+        (5003,'大床房', 0, NULL, 0),
+        (5004,'大床房', 0, NULL, 0),
+        (5005,'大床房', 0, NULL, 0),
+        (5006,'大床房', 0, NULL, 0),
+        (5007,'大床房', 0, NULL, 0),
+        (5008,'大床房', 0, NULL, 0),
+        (5009,'大床房', 0, NULL, 0),
+        (5010,'大床房', 0, NULL, 0);
 /*!40000 ALTER TABLE `rooms` ENABLE KEYS */;
 UNLOCK TABLES;
+
+
+-- 创建人员表
+CREATE TABLE `people` (
+    `peopleId` INT AUTO_INCREMENT PRIMARY KEY,
+    `peopleName` VARCHAR(20) NOT NULL
+);
+
+-- 创建房间和人员的关联表
+CREATE TABLE `roomPeople` (
+    `roomId` INT,
+    `peopleId` INT,
+    PRIMARY KEY (`roomId`, `peopleId`),
+    FOREIGN KEY (`roomId`) REFERENCES `rooms`(`roomId`),
+    FOREIGN KEY (`peopleId`) REFERENCES `people`(`peopleId`)
+);
+
+
+-- 插入人员数据（不需要指定 peopleId，会自动递增）
+LOCK TABLES `people` WRITE;
+/*!40000 ALTER TABLE `people` DISABLE KEYS */;
+INSERT INTO `people` (`peopleName`) VALUES ('徐坤');
+/*!40000 ALTER TABLE `people` ENABLE KEYS */;
+UNLOCK TABLES;
+
+-- 插入房间人员关联数据
+LOCK TABLES `roomPeople` WRITE;
+/*!40000 ALTER TABLE `roomPeople` DISABLE KEYS */;
+INSERT INTO `roomPeople` (`roomId`, `peopleId`) VALUES (2001, 1);
+/*!40000 ALTER TABLE `roomPeople` ENABLE KEYS */;
+UNLOCK TABLES;
+
+
+
 
 --
 -- Table structure for table `settings`
@@ -50,19 +127,19 @@ DROP TABLE IF EXISTS `settings`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `settings` (
-  `roomID` int NOT NULL,
-  -- `isOn` tinyint DEFAULT '0',
+  `roomId` int NOT NULL,
   `roomTemperature` int DEFAULT '26',
   `power` enum('on', 'off') DEFAULT 'off',
   `temperature` int DEFAULT '26',
   `windSpeed` enum('高','中','低') DEFAULT '低',
-  -- `mode` enum('energySaving','strongCooling','forcedHeating','custom') DEFAULT 'energySaving',
   `mode` enum('制冷','制热') DEFAULT '制冷',
   `sweep` enum('开', '关') DEFAULT '关',
   `cost` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
   `totalCost` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-  PRIMARY KEY (`roomId`)
+  PRIMARY KEY (`roomId`),
+  FOREIGN KEY (`roomId`) REFERENCES `rooms`(`roomId`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -71,17 +148,19 @@ CREATE TABLE `settings` (
 
 LOCK TABLES `settings` WRITE;
 /*!40000 ALTER TABLE `settings` DISABLE KEYS */;
-INSERT INTO `settings` VALUES 
-(101, 21, 'off', 26, '低', '制冷', '关', 11.00, 21.00),
-(102, 22, 'off', 26, '低', '制冷', '关', 12.00, 22.00),
-(103, 23, 'off', 26, '低', '制冷', '关', 13.00, 23.00),
-(104, 24, 'off', 26, '低', '制冷', '关', 14.00, 24.00),
-(105, 25, 'off', 26, '低', '制冷', '关', 15.00, 25.00),
-(106, 26, 'off', 26, '低', '制冷', '关', 16.00, 26.00),
-(107, 27, 'off', 26, '低', '制冷', '关', 17.00, 27.00),
-(108, 28, 'off', 26, '低', '制冷', '关', 18.00, 28.00),
-(109, 29, 'off', 26, '低', '制冷', '关', 19.00, 29.00),
-(110, 30, 'off', 26, '低', '制冷', '关', 20.00, 30.00);
+-- 为每个房间插入默认的空调设置
+INSERT INTO `settings` (roomId, roomTemperature, power, temperature, windSpeed, mode, sweep, cost, totalCost)
+SELECT 
+    roomId,
+    26 as roomTemperature,
+    'off' as power,
+    26 as temperature,
+    '低' as windSpeed,
+    '制冷' as mode,
+    '关' as sweep,
+    12.00 as cost,
+    24.00 as totalCost
+FROM rooms;
 
 UNLOCK TABLES;
 

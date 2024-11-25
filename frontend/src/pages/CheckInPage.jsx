@@ -12,57 +12,47 @@ const CheckInPage = () => {
   const [roomData, setRoomData] = useState([]);
   const [inputName, setInputName] = useState('');
   const [selectedRoom, setSelectedRoom] = useState(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [feeData, setFeeData] = useState([]);
   const [totalCost, setTotalCost] = useState(0);
   const [roomFee, setRoomFee] = useState(0);
   const [isCheckInModalVisible, setIsCheckInModalVisible] = useState(false);
   const [isFeeModalVisible, setIsFeeModalVisible] = useState(false);
 
-  useEffect(() => {
-    const fetchRoomData = async () => {
-      try {
-        const response = await axios.get(`http://${Host}:${Port}/api/rooms`);
-        if (Array.isArray(response.data)) {
-          const rooms = response.data;
+  const [loading, setLoading] = useState(false);
 
-          const updatedRooms = await Promise.all(
-            rooms.map(async (room) => {
-              if (room.checkedIn) {
-                const feeResponse = await axios.get(`http://${Host}:${Port}/api/calculateFee/${room.roomId}`);
-                const roomType = getRoomType(room.roomId);
-                const calculatedRoomFee = calculateRoomFee(room.checkInTime, roomType);
 
-                return {
-                  ...room,
-                  airConditionerFee: Number(feeResponse.data.totalFee) || 0,
-                  roomType,
-                  roomFee: calculatedRoomFee
-                };
-              }
-              return {
-                ...room,
-                airConditionerFee: 0,
-                roomType: getRoomType(room.roomId),
-                roomFee: 0
-              };
-            })
-          );
-
-          setRoomData(updatedRooms);
-        } else {
-          console.error('Expected an array but got:', response.data);
-          setRoomData([]);
-        }
-      } catch (error) {
-        message.error('获取房间数据失败');
-        console.error(error);
+  // 获取房间数据
+  const fetchRoomData = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post(`http://${Host}:${Port}/api/rooms`);
+      if (response.data.code === 0) {
+        // 处理返回的数据
+        const processedData = response.data.data.map(room => ({
+          ...room,
+          key: room.roomId,
+          checkedIn: room.people && room.people.length > 0
+        }));
+        setRoomData(processedData);
+      } else {
+        message.error(response.data.message || '获取房间数据失败');
         setRoomData([]);
       }
-    };
+    } catch (error) {
+      message.error('获取房间数据失败');
+      console.error(error);
+      setRoomData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchRoomData();
+    const interval = setInterval(fetchRoomData, 30000);
+    return () => clearInterval(interval);
   }, []);
+
 
   const showCheckInModal = (record) => {
     setSelectedRoom(record);
@@ -70,38 +60,31 @@ const CheckInPage = () => {
     setIsCheckInModalVisible(true);
   };
 
-  const handleCheckInOk = () => {
+  // 入住处理函数
+  const handleCheckInOk = async () => {
     if (!inputName) {
       message.error('顾客姓名不能为空');
       return;
     }
 
-    const checkInTime = new Date().toLocaleString('zh-CN', { hour12: false });
-
-    axios.post(`http://${Host}:${Port}/api/checkin/${selectedRoom.roomId}`, {
-      customerName: inputName,
-      checkInTime: checkInTime
-    })
-      .then(() => {
-        const newRoomData = roomData.map(room => {
-          if (room.roomId === selectedRoom.roomId) {
-            return {
-              ...room,
-              customerName: inputName,
-              checkInTime: checkInTime,
-              checkedIn: true,
-            };
-          }
-          return room;
-        });
-        setRoomData(newRoomData);
-        message.success(`房间 ${selectedRoom.roomId} 入住成功！`);
-        setIsCheckInModalVisible(false);
-      })
-      .catch((error) => {
-        message.error('办理入住时发生错误');
-        console.error('入住失败:', error);
+    try {
+      const response = await axios.post(`http://${Host}:${Port}/api/checkIn`, {
+        roomId: selectedRoom.roomId,
+        peopleName: inputName  // 注意这里使用 inputName 而不是 peopleName
       });
+
+      if (response.data.code === 0) {
+        message.success(response.data.message || '入住成功');
+        setIsCheckInModalVisible(false);
+        setInputName('');  // 清空输入
+        fetchRoomData();   // 刷新数据
+      } else {
+        message.error(response.data.message || '入住失败');
+      }
+    } catch (error) {
+      console.error('入住失败:', error);
+      message.error(error.response?.data?.message || '入住失败');
+    }
   };
 
   const handleCheckInCancel = () => {
@@ -112,27 +95,34 @@ const CheckInPage = () => {
     setIsFeeModalVisible(false);
   };
 
+  // 退房处理函数
   const handleCheckOut = (record) => {
     Modal.confirm({
       title: '确认办理退房？',
-      content: `房间号: ${record.roomId}, 顾客: ${record.customerName}`,
-      onOk: () => {
-        showFeeDetailsModal(record);
-        axios.post(`http://${Host}:${Port}/api/checkout/` + record.roomId)
-          .then(() => {
-            const newRoomData = roomData.map(room => {
-              if (room.roomId === record.roomId) {
-                return { ...room, customerName: '', checkInTime: '', checkedIn: false };
-              }
-              return room;
-            });
-            setRoomData(newRoomData);
-            message.success(`房间 ${record.roomId} 退房成功！`);
-          })
-          .catch(error => {
-            message.error('退房失败');
-            console.error(error);
+      content: (
+        <div>
+          <p>房间号: {record.roomId}</p>
+          <p>顾客: {record.people?.map(p => p.peopleName).join(', ')}</p>
+        </div>
+      ),
+      onOk: async () => {
+        try {
+          const response = await axios.get(`http://${Host}:${Port}/api/checkout`, {
+            params: {
+              roomId: record.roomId
+            }
           });
+
+          if (response.data.code === 0) {
+            message.success('退房成功');
+            fetchRoomData();
+          } else {
+            message.error(response.data.message || '退房失败');
+          }
+        } catch (error) {
+          console.error('退房失败:', error);
+          message.error('退房失败');
+        }
       },
       // 添加样式定位
       style: { top: '30%' },
@@ -143,7 +133,7 @@ const CheckInPage = () => {
     axios.get(`http://${Host}:${Port}/api/calculateFee/${record.roomId}`)
       .then(response => {
         const { totalFee, calculatedData: feeDetails } = response.data;
-        const calculatedRoomFee = calculateRoomFee(record.checkInTime, record.roomType);
+        const calculatedRoomFee = calculateRoomFee(record.checkInTime, record.roomLevel);
 
         // 使用工具函数确保数值类型
         const parsedTotalFee = Number(totalFee) || 0;
@@ -161,7 +151,6 @@ const CheckInPage = () => {
       });
   };
 
-  
 
 
   const feeColumns = [
@@ -204,14 +193,14 @@ const CheckInPage = () => {
     },
     {
       title: '房间类型',
-      dataIndex: 'roomType',
-      key: 'roomType',
+      dataIndex: 'roomLevel',
+      key: 'roomLevel',
       width: '12%',
       filters: [
         { text: '标准间', value: ROOM_TYPES.STANDARD },
         { text: '大床房', value: ROOM_TYPES.LARGE },
       ],
-      onFilter: (value, record) => record.roomType === value,
+      onFilter: (value, record) => record.roomLevel === value,
       render: (type) => {
         const colorMap = {
           '标准间': 'blue',
@@ -227,8 +216,8 @@ const CheckInPage = () => {
     },
     {
       title: '顾客姓名',
-      dataIndex: 'customerName',
-      key: 'customerName',
+      // dataIndex: 'people',
+      key: 'people',
       width: '12%',
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div className="p-4">
@@ -260,14 +249,21 @@ const CheckInPage = () => {
       filterIcon: (filtered) => (
         <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
       ),
-      onFilter: (value, record) =>
-        record.customerName ? record.customerName.toLowerCase().includes(value.toLowerCase()) : '',
-      render: (customerName) => {
-        if (!customerName) return '-';
+      onFilter: (value, record) => {
+        // 修改筛选逻辑
+        return record.people?.some(person =>
+          person.peopleName.toLowerCase().includes(value.toLowerCase())
+        ) || false;
+      },
+      // 修改渲染逻辑
+      render: (_, record) => {
+        if (!record.people || record.people.length === 0) return '-';
         return (
           <span className="text-base">
             <UserOutlined className="mr-2" />
-            {`${customerName[0]}${'*'.repeat(customerName.length - 1)}`}
+            {record.people.map(p =>
+              `${p.peopleName[0]}${'*'.repeat(p.peopleName.length - 1)}`
+            ).join(', ')}
           </span>
         );
       },
@@ -284,12 +280,12 @@ const CheckInPage = () => {
     },
     {
       title: '空调费用',
-      dataIndex: 'airConditionerFee',
-      key: 'airConditionerFee',
+      dataIndex: 'cost',
+      key: 'cost',
       width: '12%',
       render: (fee) => (
         <Tag color="green" className="px-3 py-1.5 text-base">
-          {fee} ¥
+          ¥ {fee}
         </Tag>
       ),
     },
@@ -416,7 +412,7 @@ const CheckInPage = () => {
                 <div className="space-y-1">
                   <div className="text-sm text-gray-500">房间类型</div>
                   <div className="text-lg font-medium text-gray-800">
-                    {selectedRoom?.roomType}
+                    {selectedRoom?.roomLevel}
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -428,7 +424,7 @@ const CheckInPage = () => {
                 <div className="space-y-1">
                   <div className="text-sm text-gray-500">顾客姓名</div>
                   <div className="text-lg font-medium text-gray-800">
-                    {selectedRoom?.customerName || '-'}
+                    {selectedRoom?.people?.map(p => p.peopleName).join(', ') || '-'}
                   </div>
                 </div>
                 <div className="space-y-1">
