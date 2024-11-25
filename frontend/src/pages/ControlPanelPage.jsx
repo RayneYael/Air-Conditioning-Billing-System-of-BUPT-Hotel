@@ -36,45 +36,51 @@ const ControlPanelPage = () => {
             roomId: roomId
           }
         });
-        const settings = response.data;
 
-        // 检查是否有返回的设置
-        if (settings) {
-          setRoomTemperature(settings.roomTemperature || 24); // 使用数据库值或默认值
-          setPower(settings.power === 'on');
-          setTemperature(settings.temperature || 26); // 使用数据库值或默认值
-          setWindSpeed(settings.windSpeed || '低');
-          setMode(settings.mode || '制冷');
-          setSweep(settings.sweep === '开'); // 将枚举值转换为布尔值
-          setCost(settings.cost || 12.06);
-          setTotalCost(settings.totalCost || 24.12);
+        // 检查响应格式
+        if (response.data.code === 0) {  // 添加响应码检查
+          const settings = response.data.data;  // 从 data 字段获取设置数据
+          if (settings) {
+            // 使用数据库中的值更新状态
+            setRoomTemperature(settings.roomTemperature || 24);
+            setPower(settings.power === 'on');
+            setTemperature(settings.temperature || 26);
+            setWindSpeed(settings.windSpeed || '低');
+            setMode(settings.mode || '制冷');
+            setSweep(settings.sweep === '开');
+            setCost(settings.cost || 12.06);
+            setTotalCost(settings.totalCost || 24.12);
+          } else {
+            message.warning('未找到房间设置，使用默认值');
+            // 使用默认值
+            setDefaultSettings();
+          }
         } else {
-          // 如果没有从数据库中获取到设置，可以在这里设置默认值
-          setRoomTemperature(24);
-          setPower(false);
-          setTemperature(26);
-          setWindSpeed('低');
-          setMode('制冷');
-          setSweep(false);
-          setCost(12.06);
-          setTotalCost(24.12);
+          message.error(response.data.message || '获取设置失败');
+          setDefaultSettings();
         }
       } catch (error) {
         message.error('获取设置失败，使用默认设置');
-        // 数据获取失败时，使用默认值
-        setRoomTemperature(24);
-        setPower(false);
-        setTemperature(26);
-        setWindSpeed('低')
-        setMode('制冷');
-        setSweep(false);
-        setCost(12.06);
-        setTotalCost(24.12);
+        console.error('获取设置错误:', error);
+        setDefaultSettings();
       }
     };
 
+    // 提取默认设置到一个函数
+    const setDefaultSettings = () => {
+      setRoomTemperature(24);
+      setPower(false);
+      setTemperature(26);
+      setWindSpeed('低');
+      setMode('制冷');
+      setSweep(false);
+      setCost(12.06);
+      setTotalCost(24.12);
+    };
+
     fetchSettings();
-  }, [roomId]);  // 每当 id 改变时，重新获取设置
+  }, [roomId]);
+
   // 动态生成雪花
   useEffect(() => {
     const container = snowflakeContainer.current;
@@ -162,9 +168,21 @@ const ControlPanelPage = () => {
 
   // 实时更新数据库中的设置
   const updateSettings = (newSettings) => {
-    axios.post(`http://${Host}:${Port}/api/controlPanelSettings/` + roomId, newSettings)
-      .then(() => {
-        message.success('设置已更新');
+    // 构建完整的请求数据，包含roomId
+    const requestData = {
+      roomId: roomId,  // 从localStorage获取的roomId
+      ...newSettings   // 展开其他设置参数
+    };
+
+    // 发送POST请求
+    axios.post(`http://${Host}:${Port}/api/controlPanelSettings`, requestData)
+      .then(response => {
+        // 检查响应状态
+        if (response.data.code === 0) {
+          message.success('设置已更新');
+        } else {
+          message.error(response.data.message || '更新设置失败');
+        }
       })
       .catch(error => {
         message.error('更新设置失败');
@@ -172,59 +190,64 @@ const ControlPanelPage = () => {
       });
   };
 
-
-
-  // 开关控制，如果获取不到数据库，则开机时默认切换到节能模式
+  // 开关控制
   const handleSwitch = (checked) => {
     setPower(checked);
-    const newSettings = {
+    updateSettings({
       power: checked ? 'on' : 'off',
-    };
-    updateSettings(newSettings); // 实时更新数据库
-  };
-
+      temperature: temperature,
+      windSpeed: windSpeed,
+      sweep: sweep ? '开' : '关'
+    });
+  }
 
   // 温度调节：只更新 UI，不更新数据库
   const handleTemperatureChange = (value) => {
     setTemperature(value);  // 实时更新 UI 显示温度
   };
 
-  // 用户停止滑动后更新数据库
+  // 温度调节后更新
   const handleTemperatureAfterChange = (value) => {
-    // 当用户停止滑动时才更新数据库
     updateSettings({
+      power: power ? 'on' : 'off',
       temperature: value,
+      windSpeed: windSpeed,
+      sweep: sweep ? '开' : '关'
     });
   };
 
   // 风速调节
   const handleWindSpeedChange = (value) => {
     setWindSpeed(value);
-    let newSettings = {
+    updateSettings({
+      power: power ? 'on' : 'off',
+      temperature: temperature,
       windSpeed: value,
-    };
-    updateSettings(newSettings);
+      sweep: sweep ? '开' : '关'
+    });
   };
-
-
-  // 设置制冷或制热模式
-  const handleCoolingHeatingChange = (value) => {
-    setMode(value);
-    let newSettings = {
-      mode: value,
-    };
-    updateSettings(newSettings);
-  };
-
 
   // 设置扫风模式
   const handleSweep = (value) => {
     setSweep(value);
-    let newSettings = {
-      sweep: value ? '开' : '关',  // 将布尔值转换为枚举值
-    };
+    updateSettings({
+      power: power ? 'on' : 'off',
+      temperature: temperature,
+      windSpeed: windSpeed,
+      sweep: value ? '开' : '关'
+    });
+  };
 
-    updateSettings(newSettings);
+  // 设置制冷或制热模式
+  const handleCoolingHeatingChange = (value) => {
+    setMode(value);
+    updateSettings({
+      power: power ? 'on' : 'off',
+      temperature: temperature,
+      windSpeed: windSpeed,
+      sweep: sweep ? '开' : '关',
+      mode: value
+    });
   };
 
   // 根据空调状态（开/关、制冷/制热）动态改变背景颜色
