@@ -34,7 +34,7 @@ const CentralControl = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axios.post(`http://${Host}:${Port}/api/rooms/details`);
+        const response = await axios.get(`http://${Host}:${Port}/aircon/status`);
 
         if (response.data.code === 0) {
           // 处理每条记录，确保数值类型正确

@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import logo from '../assets/image.png'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
+import { message } from 'antd';
 
 const Host = import.meta.env.VITE_HOST;
 const Port = import.meta.env.VITE_API_PORT;
@@ -33,8 +34,13 @@ const LoginPage = () => {
       
       try {
         // 发送异步请求
-        const res = await axios.post(`http://${Host}:${Port}/api/login`, values);
-    
+        const res = await axios.post(`http://${Host}:${Port}/admin/login`, values);
+        // 返回值中code为0表示成功，否则表示失败, message中包含错误信息
+        if (res.data.code === 1){
+          // antd提醒message.error(res.data.message);
+          message.error(res.data.message);
+          return;
+        }
         // 保存 token 等信息
         saveToken(res.data.token, values.username, res.data.role);
 

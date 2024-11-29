@@ -24,7 +24,7 @@ const ControlPanelPage = () => {
 
   const snowflakeContainer = useRef(null);  // 用于获取雪花的容器引用
 
-  const roomId = localStorage.getItem('roomId');
+  
 
   // 页面加载时从数据库获取当前的设置
   useEffect(() => {

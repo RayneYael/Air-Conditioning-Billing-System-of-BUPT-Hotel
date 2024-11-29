@@ -25,7 +25,16 @@ const CheckInPage = () => {
   const fetchRoomData = async () => {
     setLoading(true);
     try {
-      const response = await axios.post(`http://${Host}:${Port}/api/rooms`);
+      const token = localStorage.getItem('token');
+      console.log('token:', token);
+
+      const response = await axios.post(`http://${Host}:${Port}/stage/query`,{},
+        {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
       if (response.data.code === 0) {
         // 处理返回的数据
         const processedData = response.data.data.map(room => ({
@@ -66,12 +75,19 @@ const CheckInPage = () => {
       message.error('顾客姓名不能为空');
       return;
     }
+    const token = localStorage.getItem('token');
 
     try {
-      const response = await axios.post(`http://${Host}:${Port}/api/checkIn`, {
+      const response = await axios.post(`http://${Host}:${Port}/stage/add`, {
         roomId: selectedRoom.roomId,
         peopleName: inputName  // 注意这里使用 inputName 而不是 peopleName
-      });
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
 
       if (response.data.code === 0) {
         message.success(response.data.message || '入住成功');
@@ -97,6 +113,8 @@ const CheckInPage = () => {
 
   // 退房处理函数
   const handleCheckOut = (record) => {
+    const token = localStorage.getItem('token');
+    console.log('token:', token);
     Modal.confirm({
       title: '确认办理退房？',
       content: (
@@ -107,11 +125,13 @@ const CheckInPage = () => {
       ),
       onOk: async () => {
         try {
-          const response = await axios.get(`http://${Host}:${Port}/api/checkout`, {
-            params: {
-              roomId: record.roomId
+          const response = await axios.get(`http://${Host}:${Port}/stage/delete`, {
+            params: { roomId: record.roomId }, // 查询参数放到 params
+            headers: {
+              'Authorization': `Bearer ${token}` // 请求头放到 headers
             }
-          });
+          }
+          );
 
           if (response.data.code === 0) {
             message.success('退房成功');
@@ -150,8 +170,6 @@ const CheckInPage = () => {
         message.error('获取费用详情失败');
       });
   };
-
-
 
   const feeColumns = [
     {
