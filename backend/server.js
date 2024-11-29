@@ -488,7 +488,6 @@ app.post('/stage/add', (req, res) => {
 /**** 3.3 办理退房 */
 app.get('/stage/delete', (req, res) => {
   const authHeader = req.headers['authorization'];
-  console.log(authHeader);
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
         code: 1,
@@ -593,9 +592,10 @@ app.get('/stage/delete', (req, res) => {
               SET power = 'off',
                   setTemperature = 26,
                   roomTemperature = (SELECT initTemperature FROM rooms WHERE roomId = ?),
-                  windSpeed = '低',
-                  mode = '制冷',
-                  sweep = '关'
+                  windSpeed = '中',
+                  mode = (SELECT mode FROM central_settings),
+                  sweep = '关',
+                  cost = 0
               WHERE roomId = ?`;
 
             connection.query(sqlUpdateSettings, [roomId, roomId], (err) => {
@@ -622,11 +622,20 @@ app.get('/stage/delete', (req, res) => {
                     });
                   });
                 }
-
                 connection.release();
-                res.json({
+                sql = 'UPDATE settings SET totalCost = 0 WHERE roomId = ?';
+                pool.query(sql, [roomId], (err) => {
+                  if (err) {
+                    console.error('更新总费用失败:', err);
+                    return res.json({
+                      code: 1,
+                      message: '退房失败，更新总费用失败'
+                    });
+                  }
+                  return res.json({
                   code: 0,
-                  message: '退房成功',
+                  message: '退房成功'
+                });
                 });
               });
             });
@@ -1373,5 +1382,5 @@ app.listen(PORT, Host, () => {
   // setTimeout(() => {
   //   console.log('initialize...');
   // }, 15000);
-  // scheduler.start(pool);
+  scheduler.start(pool);
 });
