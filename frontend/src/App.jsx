@@ -39,7 +39,11 @@ const App = () => {
           {userRole ? (
             <Route path="/home" element={<MainLayout userRole={userRole} />} >
             <Route index element={<WelcomePage />} />
-            <Route path="/room/:roomId" element={<ControlPanelPage />} />
+            <Route path="controlPanel" element={<ControlPanelPage />} />
+            <Route path="feeDetails" element={<FeeDetailPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="centralControl" element={<CentralControl />} />
+            <Route path="checkIn" element={<CheckInPage />} />
 
           </Route>
         ) : (
@@ -53,23 +57,3 @@ const App = () => {
 };
 
 export default App
-
-
-/*
-
-          {/* <Route path="/" element={<LoginPage />} />
-          {userRole ? (
-            <Route path="/home" element={<MainLayout userRole={userRole} />} >
-            <Route index element={<WelcomePage />} />
-            <Route path="controlPanel" element={<ControlPanelPage />} />
-            <Route path="feeDetails" element={<FeeDetailPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="centralControl" element={<CentralControl />} />
-            <Route path="checkIn" element={<CheckInPage />} />
-
-          </Route>
-        ) : (
-          <Route path="*" element={<Navigate to="/" />} />
-        )} 
-
-*/

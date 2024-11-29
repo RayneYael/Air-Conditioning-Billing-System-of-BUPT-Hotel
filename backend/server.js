@@ -165,7 +165,7 @@ app.get('/aircon/panel', (req, res) => {
   // 检查是否提供了房间号
   if (!roomId) {
     return res.json({
-      code: 400,
+      code: 1,
       message: '缺少房间号参数',
       data: null
     });

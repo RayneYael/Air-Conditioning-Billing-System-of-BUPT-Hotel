@@ -3,7 +3,7 @@ import { Table, Button, Tag, Space, Modal, message, Input, Card } from 'antd';
 import { CheckOutlined, PrinterOutlined, LogoutOutlined, SearchOutlined, HomeOutlined, UserOutlined, DollarOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import moment from 'moment';
-import { ROOM_TYPES, calculateRoomFee, getRoomType, formatAmount } from '../utils/roomUtils';
+import { ROOM_TYPES, calculateRoomFee, formatAmount, getRoomType } from '../utils/roomUtils';
 
 const Host = import.meta.env.VITE_HOST;
 const Port = import.meta.env.VITE_API_PORT;
@@ -28,21 +28,36 @@ const CheckInPage = () => {
       const token = localStorage.getItem('token');
       console.log('token:', token);
 
-      const response = await axios.post(`http://${Host}:${Port}/stage/query`,{},
+      const response = await axios.post(`http://${Host}:${Port}/stage/query`, {},
         {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        });
 
       if (response.data.code === 0) {
         // 处理返回的数据
-        const processedData = response.data.data.map(room => ({
-          ...room,
-          key: room.roomId,
-          checkedIn: room.people && room.people.length > 0
-        }));
+        const processedData = response.data.data.map(room => {
+          const roomFee = room.checkInTime
+            ? calculateRoomFee(room.checkInTime, room.roomLevel)
+            : 0;
+          // console.log('Input:', {
+          //   checkInTime: room.checkInTime,
+          //   roomLevel: room.roomLevel,
+          //   result: roomFee
+          // });
+
+          return {
+            ...room,
+            key: room.roomId,
+            checkedIn: room.people && room.people.length > 0,
+            roomFee: roomFee,
+            totalFee: roomFee + (room.cost || 0) // 房费 + 空调费
+          };
+        });
         setRoomData(processedData);
+
+
       } else {
         message.error(response.data.message || '获取房间数据失败');
         setRoomData([]);
@@ -58,8 +73,26 @@ const CheckInPage = () => {
 
   useEffect(() => {
     fetchRoomData();
-    const interval = setInterval(fetchRoomData, 30000);
-    return () => clearInterval(interval);
+
+    const updateFees = () => {
+      setRoomData(prevData => prevData.map(room => {
+        if (!room.checkInTime) return room;
+        
+        const currentFee = calculateRoomFee(room.checkInTime, room.roomLevel)
+        return {
+          ...room,
+          roomFee: currentFee,
+          totalFee: currentFee + (room.cost || 0)
+        };
+      }));
+    };
+
+    const intervals = [
+      setInterval(fetchRoomData, 30000),
+      setInterval(updateFees, 1000)
+    ];
+
+    return () => intervals.forEach(clearInterval)
   }, []);
 
 
@@ -82,12 +115,12 @@ const CheckInPage = () => {
         roomId: selectedRoom.roomId,
         peopleName: inputName  // 注意这里使用 inputName 而不是 peopleName
       },
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         }
-      }
-    );
+      );
 
       if (response.data.code === 0) {
         message.success(response.data.message || '入住成功');
@@ -150,23 +183,40 @@ const CheckInPage = () => {
   };
 
   const showFeeDetailsModal = (record) => {
-    axios.get(`http://${Host}:${Port}/api/calculateFee/${record.roomId}`)
+    axios.get(`http://${Host}:${Port}/stage/record?roomId=${record.roomId}`)
       .then(response => {
-        const { totalFee, calculatedData: feeDetails } = response.data;
-        const calculatedRoomFee = calculateRoomFee(record.checkInTime, record.roomLevel);
+        const { data } = response;
+        if (data.code === 0) {
+          // 处理空调费用数据
+          const acRecords = data.data.records.map(record => ({
+            startTime: record.time,
+            changedSetting: `温度: ${record.temperature}°C, 风速: ${record.windSpeed}, 模式: ${record.mode}, 扫风: ${record.sweep}`,
+            costPerHour: record.windSpeed === '高' ? 1 : record.windSpeed === '中' ? 0.5 : 0.33, // 需要根据具体规则实现此函数
+            stageCost: record.cost
+          }));
 
-        // 使用工具函数确保数值类型
-        const parsedTotalFee = Number(totalFee) || 0;
-        const parsedRoomFee = Number(calculatedRoomFee) || 0;
+          // 计算总费用
+          const totalAcCost = data.data.cost;
 
-        setSelectedRoom(record);
-        setTotalCost(parsedTotalFee);
-        setRoomFee(parsedRoomFee);
-        setFeeData(feeDetails);
-        setIsFeeModalVisible(true);
+          // 计算房费
+          const roomFee = record.checkInTime
+            ? calculateRoomFee(record.checkInTime, record.roomLevel)
+            : 0;
+
+          setSelectedRoom({
+            ...record,
+            people: data.data.people
+          });
+          setTotalCost(totalAcCost);
+          setRoomFee(roomFee); // 设置房费
+          setFeeData(acRecords);
+          setIsFeeModalVisible(true);
+        } else {
+          message.error(data.message || '获取费用详情失败');
+        }
       })
       .catch(error => {
-        setSelectedRoom(record.roomId);
+        console.error('Error fetching fee details:', error);
         message.error('获取费用详情失败');
       });
   };
@@ -184,7 +234,7 @@ const CheckInPage = () => {
       key: 'changedSetting',
     },
     {
-      title: '每小时费用 (元)',
+      title: '计费 (元/分钟)',
       dataIndex: 'costPerHour',
       key: 'costPerHour',
     },
@@ -511,13 +561,13 @@ const CheckInPage = () => {
                     key: 'changedSetting',
                   },
                   {
-                    title: '每小时费用',
+                    title: '计费 (元/分钟)',
                     dataIndex: 'costPerHour',
                     key: 'costPerHour',
                     width: '15%',
                     render: (cost) => (
                       <div className="text-gray-600">
-                        ¥ {formatAmount(cost)}/小时
+                        ¥ {formatAmount(cost)}
                       </div>
                     ),
                   },

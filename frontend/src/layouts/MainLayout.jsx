@@ -23,7 +23,20 @@ const roomItems = [
   getItem(<Link to="controlPanel">控制面板</Link>, 'controlPanel', <FileOutlined />),
   getItem(<Link to="feeDetails">费用明细</Link>, 'feeDetails', <FileOutlined />),
 ];
+const receptManagerItems = [
+  getItem(<Link to="profile">我的账号</Link>, 'profile', <UserOutlined />),
+  getItem(<Link to="checkIn">办理入住</Link>, 'checkIn', <FileOutlined />),
+];
+const airConManagerItems = [
+  getItem(<Link to="profile">我的账号</Link>, 'profile', <UserOutlined />),
+  getItem(<Link to="centralControl">空调总控</Link>, 'centralControl', <GlobalOutlined />),
 
+];
+const managerItems = [
+  getItem(<Link to="profile">我的账号</Link>, 'profile', <UserOutlined />),
+  getItem(<Link to="checkIn">办理入住</Link>, 'checkIn', <FileOutlined />),
+  getItem(<Link to="centralControl">空调总控</Link>, 'centralControl', <GlobalOutlined />),
+];
 const MainLayout = () => {
   // 从 localStorage 获取语言，默认为英文
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'zh');
@@ -56,16 +69,16 @@ const MainLayout = () => {
 
   let items = [];
   switch (role) {
-    case '房间':
+    case 'room':
       items = roomItems;
       break;
-    case '前台营业员':
+    case 'recept_manager':
       items = receptManagerItems;
       break;
-    case '空调管理员':
+    case 'airCon_manager':
       items = airConManagerItems;
       break;
-    case '总经理':
+    case 'manager':
       items = managerItems;
       break;
     default:

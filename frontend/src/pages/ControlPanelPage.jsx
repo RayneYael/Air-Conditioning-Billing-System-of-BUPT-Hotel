@@ -11,6 +11,7 @@ const { Option } = Select;
 const Host = import.meta.env.VITE_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
+const roomId = localStorage.getItem('roomId');
 
 const ControlPanelPage = () => {
   const [roomTemperature, setRoomTemperature] = useState(24); // 温度初始为24度
@@ -31,7 +32,7 @@ const ControlPanelPage = () => {
     const fetchSettings = async () => {
       try {
         // 使用查询参数的方式请求 API
-        const response = await axios.get(`http://${Host}:${Port}/api/controlPanelSettings`, {
+        const response = await axios.get(`http://${Host}:${Port}/aircon/panel`, {
           params: {
             roomId: roomId
           }
@@ -175,7 +176,7 @@ const ControlPanelPage = () => {
     };
 
     // 发送POST请求
-    axios.post(`http://${Host}:${Port}/api/controlPanelSettings`, requestData)
+    axios.post(`http://${Host}:${Port}/aircon/control`, requestData)
       .then(response => {
         // 检查响应状态
         if (response.data.code === 0) {

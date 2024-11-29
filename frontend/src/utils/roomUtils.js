@@ -4,11 +4,11 @@ import moment from 'moment';
 export const ROOM_TYPES = {
   STANDARD: {
     name: '标准间',
-    price: 200  // 每晚价格
+    price: 200 // 每晚价格
   },
   LARGE: {
     name: '大床房',
-    price: 500  // 每晚价格
+    price: 500 // 每晚价格
   }
 };
 
@@ -20,19 +20,22 @@ export const ROOM_TYPES = {
  */
 export const calculateRoomFee = (checkInTime, roomType) => {
   if (!checkInTime) return 0;
-  
-  const checkIn = moment(checkInTime);
-  const now = moment();
-  
-  // 计算入住天数（向上取整，不足一天按一天计算）
-  const days = Math.ceil(now.diff(checkIn, 'hours') / 24);
-  
-  // 获取房间基础价格
-  const basePrice = roomType === ROOM_TYPES.STANDARD.name 
-    ? ROOM_TYPES.STANDARD.price 
-    : ROOM_TYPES.LARGE.price;
-  
-  return days * basePrice;
+
+  const checkIn = moment(checkInTime).local();
+  const now = moment().local();
+  const checkInDay = checkIn.startOf('day');
+  const nowDay = now.startOf('day');
+
+  // 计算已经过去的天数
+  const daysPassed = Math.max(1, nowDay.diff(checkInDay, 'days') + 1);
+
+  // 如果当前时间超过12点，且还未退房，加收一天
+  const addExtraDay = now.hour() >= 12;
+  const totalDays = addExtraDay ? daysPassed + 1 : daysPassed;
+
+  const basePrice = roomType === ROOM_TYPES.STANDARD.name ? ROOM_TYPES.STANDARD.price : ROOM_TYPES.LARGE.price;
+
+  return totalDays * basePrice;
 };
 
 /**
@@ -41,7 +44,7 @@ export const calculateRoomFee = (checkInTime, roomType) => {
  * @returns {string} - 房间类型名称
  */
 export const getRoomType = (roomId) => {
-  return roomId % 2 === 0 ? ROOM_TYPES.LARGE.name : ROOM_TYPES.STANDARD.name;
+  return roomId < 5000 ? ROOM_TYPES.LARGE.name : ROOM_TYPES.STANDARD.name;
 };
 
 /**
