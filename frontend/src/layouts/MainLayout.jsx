@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   FileOutlined,
   UserOutlined,
@@ -19,23 +19,24 @@ function getItem(label, key, icon, children) {
   };
 }
 
-const roomItems = [
-  getItem(<Link to="controlPanel">控制面板</Link>, 'controlPanel', <FileOutlined />),
-  getItem(<Link to="feeDetails">费用明细</Link>, 'feeDetails', <FileOutlined />),
-];
+// const roomItems = [
+//   getItem(<Link to="controlPanel">控制面板</Link>, 'controlPanel', <FileOutlined />),
+//   // getItem(<Link to="/controlPanel/2001">控制面板</Link>, 'controlPanel', <FileOutlined />),
+//   // getItem(<Link to="feeDetails">费用明细</Link>, 'feeDetails', <FileOutlined />),
+// ];
 const receptManagerItems = [
-  getItem(<Link to="profile">我的账号</Link>, 'profile', <UserOutlined />),
-  getItem(<Link to="checkIn">办理入住</Link>, 'checkIn', <FileOutlined />),
+  getItem(<Link to="home/profile">我的账号</Link>, 'profile', <UserOutlined />),
+  getItem(<Link to="home/checkIn">办理入住</Link>, 'checkIn', <FileOutlined />),
 ];
 const airConManagerItems = [
-  getItem(<Link to="profile">我的账号</Link>, 'profile', <UserOutlined />),
-  getItem(<Link to="centralControl">空调总控</Link>, 'centralControl', <GlobalOutlined />),
+  getItem(<Link to="home/profile">我的账号</Link>, 'profile', <UserOutlined />),
+  getItem(<Link to="home/centralControl">空调总控</Link>, 'centralControl', <GlobalOutlined />),
 
 ];
 const managerItems = [
-  getItem(<Link to="profile">我的账号</Link>, 'profile', <UserOutlined />),
-  getItem(<Link to="checkIn">办理入住</Link>, 'checkIn', <FileOutlined />),
-  getItem(<Link to="centralControl">空调总控</Link>, 'centralControl', <GlobalOutlined />),
+  getItem(<Link to="home/profile">我的账号</Link>, 'profile', <UserOutlined />),
+  getItem(<Link to="home/checkIn">办理入住</Link>, 'checkIn', <FileOutlined />),
+  getItem(<Link to="home/centralControl">空调总控</Link>, 'centralControl', <GlobalOutlined />),
 ];
 const MainLayout = () => {
   // 从 localStorage 获取语言，默认为英文
@@ -57,40 +58,51 @@ const MainLayout = () => {
   } = theme.useToken();
 
   const navigate = useNavigate(); // 使用 useNavigate
+  const location = useLocation(); // 用于检查当前路径
+
+  // 检查是否是房间访问路径
+  const isRoomAccess = location.pathname.startsWith('/room/');
+
+  // 动态生成菜单项
+  let menuItems = [];
+  if (isRoomAccess) {
+    // 如果是直接访问房间，只显示必要的菜单项
+    menuItems = [];  // 可以为空，或者添加你想要显示的其他选项
+  } else {
+    // 正常的登录用户菜单
+    switch (role) {
+      // case 'room':
+      //   menuItems = roomItems;
+      //   break;
+      case '前台服务':
+        menuItems = receptManagerItems;
+        break;
+      case '空调管理':
+        menuItems = airConManagerItems;
+        break;
+      case '酒店经理':
+        menuItems = managerItems;
+        break;
+      default:
+        menuItems = [];
+        break;
+    }
+  }
 
   // 处理退出登录的函数
   const handleLogout = () => {
-    // 清除 localStorage 中的用户信息
-    localStorage.removeItem('role');
-    localStorage.removeItem('language');
-    // 跳转到登录页面
-    navigate('/');
+    if (!isRoomAccess) { // 只在非房间访问模式下显示登出功能
+      localStorage.removeItem('role');
+      localStorage.removeItem('language');
+      navigate('/');
+    }
   };
 
-  let items = [];
-  switch (role) {
-    case 'room':
-      items = roomItems;
-      break;
-    case 'recept_manager':
-      items = receptManagerItems;
-      break;
-    case 'airCon_manager':
-      items = airConManagerItems;
-      break;
-    case 'manager':
-      items = managerItems;
-      break;
-    default:
-      items = []; // 处理没有角色的情况，比如返回一个空的菜单或提示无权限
-      break;
-  }
-
   // 在每次渲染时添加“退出登录”菜单项，确保不会重复添加
-  const menuItems = [
-    ...items,
-    getItem('退出登录', 'logout', <LogoutOutlined />),
-  ];
+  // 只在非房间访问模式下添加登出按钮
+  const finalMenuItems = isRoomAccess 
+    ? menuItems 
+    : [...menuItems, getItem('退出登录', 'logout', <LogoutOutlined />)];
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
