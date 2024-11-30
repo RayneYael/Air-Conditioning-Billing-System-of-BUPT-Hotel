@@ -1,7 +1,7 @@
 import React from 'react'
 import './App.css'
 import { useState, useEffect } from 'react';
-import { BrowserRouter,Routes,Route,Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage'
 import MainLayout from './layouts/MainLayout'
 import WelcomePage from './pages/WelcomePage'
@@ -33,24 +33,31 @@ const App = () => {
 
   return (
     <>
-    <BrowserRouter>
-      <Routes>
+      <BrowserRouter>
+        <Routes>
+          {/* 登录页面路由 */}
           <Route path="/" element={<LoginPage />} />
-          {userRole ? (
-            <Route path="/home" element={<MainLayout userRole={userRole} />} >
-            <Route index element={<WelcomePage />} />
-            <Route path="controlPanel" element={<ControlPanelPage />} />
-            <Route path="feeDetails" element={<FeeDetailPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="centralControl" element={<CentralControl />} />
-            <Route path="checkIn" element={<CheckInPage />} />
 
+          {/* MainLayout 包含的所有路由 */}
+          <Route element={<MainLayout />}>
+            {/* 公开访问的空调控制面板路由 */}
+            <Route path="/room/:roomId" element={<ControlPanelPage />} />
+
+            {/* 需要登录验证的路由 */}
+            {userRole ? (
+              <Route path="/home">
+                <Route index element={<WelcomePage />} />
+                <Route path="feeDetails" element={<FeeDetailPage />} />
+                <Route path="profile" element={<ProfilePage />} />
+                <Route path="centralControl" element={<CentralControl />} />
+                <Route path="checkIn" element={<CheckInPage />} />
+              </Route>
+            ) : (
+              <Route path="*" element={<Navigate to="/" />} />
+            )}
           </Route>
-        ) : (
-          <Route path="*" element={<Navigate to="/" />} />
-        )}
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
 
     </>
   );
