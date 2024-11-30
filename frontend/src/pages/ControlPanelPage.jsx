@@ -5,15 +5,19 @@ import axios from 'axios';
 import "../App.css"
 import WeatherModule from './WeatherModule'; // 引入天气模块
 import ConsumptionPanel from './ConsumptionPanel'; // 引入计费模块
-
+import { useParams, useNavigate } from 'react-router-dom';
 
 const { Option } = Select;
 const Host = import.meta.env.VITE_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
-const roomId = localStorage.getItem('roomId');
+// const roomId = localStorage.getItem('roomId');
 
 const ControlPanelPage = () => {
+
+  const { roomId } = useParams(); // 从 URL 获取 roomId
+  const navigate = useNavigate();
+
   const [roomTemperature, setRoomTemperature] = useState(24); // 温度初始为24度
   const [power, setPower] = useState(false); // 开关状态
   const [temperature, setTemperature] = useState(26); // 温度初始为26度
