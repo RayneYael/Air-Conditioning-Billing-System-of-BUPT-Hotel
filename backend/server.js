@@ -1382,5 +1382,5 @@ app.listen(PORT, Host, () => {
   // setTimeout(() => {
   //   console.log('initialize...');
   // }, 15000);
-  scheduler.start(pool);
+  // scheduler.start(pool);
 });

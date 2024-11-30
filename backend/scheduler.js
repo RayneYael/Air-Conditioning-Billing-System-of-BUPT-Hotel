@@ -159,41 +159,77 @@ async function update_database(pool, time) {
         });
 
     try {
-        // 查询所有开机的房间（power = 'on'）
-        const sqlSettings = `SELECT * FROM settings WHERE power = 'on'`;
-        const settingsResult = await queryDatabase(sqlSettings);
+        // 查询runningQueue中的roomId，更新费用
+        for (const roomId of runningQueue) {
+            const sqlSettings = `SELECT * FROM settings WHERE roomId = ?`;
+            const settingsResult = await queryDatabase(sqlSettings, [roomId]);
 
-        for (const row of settingsResult) {
-            const { roomId, windSpeed, totalCost } = row;
-            let cost = 0;
-
-            // 根据风速计算当前用电量
-            if (windSpeed === '高') {
-                cost = 1; // 高风速：1度/分钟
-            } else if (windSpeed === '中') {
-                cost = 1 / 2; // 中风速：0.5度/分钟
-            } else {
-                cost = 1 / 3; // 低风速：0.33度/分钟
+            if (settingsResult.length === 0) {
+                console.error(`No settings found for roomId ${roomId}`);
+                continue;
             }
 
-            const updatedTotalCost = totalCost + cost;
+            const { windSpeed, totalCost, cost} = settingsResult[0];
+            let costPerMin = 0;
 
-            // 更新 settings 表中的 cost 和 totalCost
+            if (windSpeed === '高') {
+                costPerMin = 1;
+            } else if (windSpeed === '中') {
+                costPerMin = 1 / 2;
+            } else {
+                costPerMin = 1 / 3;
+            }
+
+            const updatedTotalCost = totalCost + costPerMin;
+
             const sqlUpdateSettings = `UPDATE settings SET cost = ?, totalCost = ? WHERE roomId = ?`;
-            await queryDatabase(sqlUpdateSettings, [cost, updatedTotalCost, roomId]);
+            await queryDatabase(sqlUpdateSettings, [cost+costPerMin, updatedTotalCost, roomId]);
 
-            // 查询 aircon_history 表中 roomId 最近一条记录
             const sqlSelectHistory = `SELECT * FROM aircon_history WHERE roomId = ? ORDER BY time DESC LIMIT 1`;
             const historyResult = await queryDatabase(sqlSelectHistory, [roomId]);
 
             if (historyResult.length > 0) {
                 const historyId = historyResult[0].id;
 
-                // 更新 aircon_history 表中最近一条记录的 cost
                 const sqlUpdateHistory = `UPDATE aircon_history SET cost = ? WHERE id = ?`;
-                await queryDatabase(sqlUpdateHistory, [cost, historyId]);
+                await queryDatabase(sqlUpdateHistory, [cost+costPerMin, historyId]);
             }
         }
+
+        // const sqlSettings = `SELECT * FROM settings WHERE power = 'on'`;
+        // const settingsResult = await queryDatabase(sqlSettings);
+
+        // for (const row of settingsResult) {
+        //     const { roomId, windSpeed, totalCost } = row;
+        //     let cost = 0;
+
+        //     // 根据风速计算当前用电量
+        //     if (windSpeed === '高') {
+        //         cost = 1; // 高风速：1度/分钟
+        //     } else if (windSpeed === '中') {
+        //         cost = 1 / 2; // 中风速：0.5度/分钟
+        //     } else {
+        //         cost = 1 / 3; // 低风速：0.33度/分钟
+        //     }
+
+        //     const updatedTotalCost = totalCost + cost;
+
+        //     // 更新 settings 表中的 cost 和 totalCost
+        //     const sqlUpdateSettings = `UPDATE settings SET cost = ?, totalCost = ? WHERE roomId = ?`;
+        //     await queryDatabase(sqlUpdateSettings, [cost, updatedTotalCost, roomId]);
+
+        //     // 查询 aircon_history 表中 roomId 最近一条记录
+        //     const sqlSelectHistory = `SELECT * FROM aircon_history WHERE roomId = ? ORDER BY time DESC LIMIT 1`;
+        //     const historyResult = await queryDatabase(sqlSelectHistory, [roomId]);
+
+        //     if (historyResult.length > 0) {
+        //         const historyId = historyResult[0].id;
+
+        //         // 更新 aircon_history 表中最近一条记录的 cost
+        //         const sqlUpdateHistory = `UPDATE aircon_history SET cost = ? WHERE id = ?`;
+        //         await queryDatabase(sqlUpdateHistory, [cost, historyId]);
+        //     }
+        // }
 
         // 调用 simulate_temperature_change 模拟温度变化并更新数据库
         await simulate_temperature_change(pool, time);
@@ -231,7 +267,7 @@ async function handle_user_operation(pool, time) {
 
             for (const roomId of openIndices) {
                 const sqlSelectSettings = `
-                    SELECT roomTemperature, setTemperature, initTemperature, mode, windSpeed 
+                    SELECT roomTemperature, setTemperature, initTemperature, mode, windSpeed, sweep 
                     FROM settings 
                     WHERE roomId = ?
                 `;
@@ -242,7 +278,7 @@ async function handle_user_operation(pool, time) {
                     continue;
                 }
 
-                const { setTemperature, initTemperature, windSpeed, mode, roomTemperature } = settingsResult[0];
+                const { setTemperature, initTemperature, windSpeed, mode, roomTemperature, sweep } = settingsResult[0];
                 const task = {
                     request_time: time,
                     wind_speed: windSpeed,
@@ -254,8 +290,14 @@ async function handle_user_operation(pool, time) {
                     task: '开机',
                 };
 
-                const sqlUpdateSettings = `UPDATE settings SET power = 'on' WHERE roomId = ?`;
+                const sqlUpdateSettings = `UPDATE settings SET power = 'on', cost = 0 WHERE roomId = ?`;
                 await queryDatabase(sqlUpdateSettings, [roomId]);
+
+                const sqlInsertAirconHistory = `
+                    INSERT INTO aircon_history (roomId, time, power, temperature, windSpeed, mode, sweep) 
+                    VALUES (?, ?, 'on', ?, ?, ?, ?)
+                `;
+                await queryDatabase(sqlInsertAirconHistory, [roomId, time, roomTemperature, windSpeed, mode, sweep]);
 
                 console.log('用户操作', task);
                 await ProcessUserOperation(task, pool);
@@ -272,8 +314,20 @@ async function handle_user_operation(pool, time) {
             // 创建一个副本用于遍历，防止原数组在操作中被修改
             for (const roomId of [...closeIndices]) {
                 try {
-                    const sqlUpdateSettings = `UPDATE settings SET power = 'off' WHERE roomId = ?`;
+                    const sqlUpdateSettings = `UPDATE settings SET power = 'off', cost = 0 WHERE roomId = ?`;
                     await queryDatabase(sqlUpdateSettings, [roomId]);
+
+                    const sqlSelectSettings = `SELECT * FROM settings WHERE roomId = ?`;
+                    let settingsResult = await queryDatabase(sqlSelectSettings, [roomId]);
+
+                    const { roomTemperature, initTemperature, mode, setTemperature, windSpeed, sweep } = settingsResult[0];
+
+                    const sqlInsertAirconHistory = `
+                        INSERT INTO aircon_history (roomId, time, power, temperature, windSpeed, mode, sweep)
+                        VALUES (?, ?, 'off', ?, ?, ?, ?)
+                    `;
+                    const airconHistory = await queryDatabase(sqlInsertAirconHistory, [roomId, time, roomTemperature, windSpeed, mode, sweep]);
+                    
 
                     const sqlInsertHistory = `
                         INSERT INTO schedule_history (roomId, requestTime, status, duration) 
@@ -326,12 +380,12 @@ async function handle_user_operation(pool, time) {
                     }
                 }
             }
-
+            // 处理调风
             for (const [key, windSpeed] of Object.entries(indices_wind)) {
                 const roomId = parseInt(key) + 2001;
 
                 const sqlSelectSettings = `
-                    SELECT roomTemperature, initTemperature, mode, setTemperature 
+                    SELECT roomTemperature, initTemperature, mode, setTemperature, sweep, power 
                     FROM settings 
                     WHERE roomId = ?
                 `;
@@ -342,26 +396,30 @@ async function handle_user_operation(pool, time) {
                     continue;
                 }
 
-                const { roomTemperature, initTemperature, mode, setTemperature } = settingsResult[0];
+                const { roomTemperature, initTemperature, mode, setTemperature, sweep, power } = settingsResult[0];
 
                 const task = {
                     request_time: time,
                     wind_speed: windSpeed,
-                    mode,
+                    mode: mode,
                     init_temp: initTemperature,
                     target_temp: setTemperature,
                     romeTemperature: roomTemperature,
-                    roomId,
+                    roomId: roomId,
                     task: '调风',
                 };
 
-                const sqlUpdateWindSpeed = `UPDATE settings SET windSpeed = ? WHERE roomId = ?`;
+                const sqlUpdateWindSpeed = `UPDATE settings SET windSpeed = ?, cost = 0 WHERE roomId = ?`;
                 await queryDatabase(sqlUpdateWindSpeed, [windSpeed, roomId]);
+
+                const sqlInsertAirconHistory = `INSERT INTO aircon_history (roomId, time, power, temperature, windSpeed, mode, sweep) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+                await queryDatabase(sqlInsertAirconHistory, [roomId, time, power, setTemperature, windSpeed, mode, sweep]);
 
                 console.log('用户操作', task);
                 await ProcessUserOperation(task, pool);
             }
 
+            // 处理调温
             for (const [key, setTemperature] of Object.entries(indices_temp)) {
                 const roomId = parseInt(key) + 2001;
 
@@ -376,25 +434,25 @@ async function handle_user_operation(pool, time) {
                 `;
                 await queryDatabase(sqlUpdateHistory, [setTemperature, roomId]);
             }
+            // 调温不影响调度，不计入了
+            // const sqlSelectAllSettings = `SELECT * FROM settings WHERE roomId BETWEEN 2001 AND 2005`;
+            // const allSettings = await queryDatabase(sqlSelectAllSettings);
 
-            const sqlSelectAllSettings = `SELECT * FROM settings WHERE roomId BETWEEN 2001 AND 2005`;
-            const allSettings = await queryDatabase(sqlSelectAllSettings);
-
-            for (const row of allSettings) {
-                const { roomId, power, roomTemperature, windSpeed, mode } = row;
-                const sqlInsertHistory = `
-                    INSERT INTO aircon_history (roomId, time, power, temperature, windSpeed, mode) 
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `;
-                await queryDatabase(sqlInsertHistory, [
-                    roomId,
-                    time,
-                    power,
-                    roomTemperature,
-                    windSpeed,
-                    mode,
-                ]);
-            }
+            // for (const row of allSettings) {
+            //     const { roomId, power, roomTemperature, windSpeed, mode } = row;
+            //     const sqlInsertHistory = `
+            //         INSERT INTO aircon_history (roomId, time, power, temperature, windSpeed, mode) 
+            //         VALUES (?, ?, ?, ?, ?, ?)
+            //     `;
+            //     await queryDatabase(sqlInsertHistory, [
+            //         roomId,
+            //         time,
+            //         power,
+            //         roomTemperature,
+            //         windSpeed,
+            //         mode,
+            //     ]);
+            // }
         } catch (err) {
             console.error('Error handling wind/temperature operations:', err);
         }
@@ -426,7 +484,10 @@ async function simulate_temperature_change(pool, time) {
                 // 更新 schedule_history 的 end_time 和 duration
                 sql = `SELECT * FROM schedule_history WHERE roomId = ? ORDER BY id DESC LIMIT 1`;
                 const historyResult = await queryDatabase(sql, [roomId]);
-                const { id: historyId, start_time: startTime } = historyResult[0];
+                const { id: historyId, start_time: startTime, requestTime: requestTime } = historyResult[0];
+                if (!startTime) {
+                    startTime = requestTime;
+                }
                 const duration = moment.duration(moment(time).diff(moment(startTime))).asSeconds();
 
                 sql = `UPDATE schedule_history SET end_time = ?, duration = ? WHERE id = ?`;
@@ -689,7 +750,7 @@ async function startScheduler(pool) {
         } catch (err) {
             console.error('Error in scheduler:', err);
         }
-    }, 10000); // 每 10 秒执行一次
+    }, 5000); // 每 10 秒执行一次
 }
 
 
