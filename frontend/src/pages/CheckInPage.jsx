@@ -190,7 +190,7 @@ const CheckInPage = () => {
           // 处理空调费用数据
           const acRecords = data.data.records.map(record => ({
             startTime: record.time,
-            changedSetting: `温度: ${record.temperature}°C, 风速: ${record.windSpeed}, 模式: ${record.mode}, 扫风: ${record.sweep}`,
+            changedSetting: `开关: ${record.power === "on" ? "开" : "关"}, 温度: ${record.temperature}°C, 风速: ${record.windSpeed}, 模式: ${record.mode}, 扫风: ${record.sweep}`,
             costPerHour: record.windSpeed === '高' ? 1 : record.windSpeed === '中' ? 0.5 : 0.33, // 需要根据具体规则实现此函数
             stageCost: record.cost
           }));
