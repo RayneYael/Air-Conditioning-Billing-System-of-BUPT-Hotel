@@ -218,7 +218,11 @@ async function handle_user_operation(pool, time) {
         const user_operation = Simulate_user_operation.shift();
         console.log('用户操作', user_operation);
 
-        if (!user_operation) return;
+        // 如果Simulate_user_operation这个数组已经被读完了
+        if (user_operation === undefined) {
+            console.log('模拟结束');
+            return -1;
+        }
 
         // 第一部分：处理开关机指令
         try {
@@ -663,34 +667,36 @@ function queryDatabase(pool, sql, params = []) {
 }
 
 
-// 需补充数据库cost条目 区分不同风速的用电量（高风速1度1分钟，中风速1度2分钟，低风速1度3分钟）
-
 async function startScheduler(pool) {
     console.log("Scheduler started...");
     let time = '2024-12-2 15:40:00';
 
     setInterval(async () => {
         try {
-            // 更新当前时间
+            // step1:更新当前时间
             time = moment(time).add(1, 'minutes').format('YYYY-MM-DD HH:mm:ss');
             console.log('step1: 获取当前时间', time);
 
-            // 处理每次调度前的用户操作
-            await handle_user_operation(pool, time);
+            // step2:处理每次调度前的用户操作
+            ifend = await handle_user_operation(pool, time);
+            // 如果测试用例已经执行完毕，结束调度
+            if (ifend === -1) {
+                return;
+            }
             console.log('step2: 处理用户操作完成');
 
-            // 处理 runningQueue 对象的去留问题
+            // step3:处理 runningQueue 对象的去留问题
             await handle_runningQueue_TimeSlice(pool, time);
             console.log('step3: 处理 runningQueue 完成');
 
-            // 执行调度逻辑
+            // step4:执行调度逻辑
             await schedule(pool, time);
             console.log('runningQueue:', runningQueue);
             console.log('waitingQueue:', waitingQueue);
             console.log('offQueue:', offQueue);
             console.log('step4: 调度结束');
 
-            // 更新数据库
+            // step5:更新数据库（包括模拟温度变化更新）
             await update_database(pool, time);
             console.log('step5: 更新数据库完成');
         } catch (err) {

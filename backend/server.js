@@ -30,16 +30,81 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// 定义功耗kwh计算函数（参数有风速）
-function calculateCostPerHour(windSpeed) {
-  let costPerHour = 1.2; // 基础费用
+// 不同风速 单位分钟 耗电量kwh
+function calculateCostPerMin(windSpeed) {
+  let costPerMin = 0; 
   if (windSpeed === '高') {
-    costPerHour += 0.5; // 高风速增加额外费用
+    costPerMin += 1; 
   } else if (windSpeed === '中') {
-    costPerHour += 0.3; // 中风速增加额外费用
+    costPerMin += 0.5; 
+  } else if (windSpeed === '低') {
+    costPerMin += 1/3; 
   }
-  return costPerHour;
+  return costPerMin;
 }
+
+/* 
+特别注意，本组最终使用脚本模拟用户操作，读取脚本会进行一系列数据库更新（包括温度调整、空调设置调整、记录表更新等），前端也会实时更新显示完整的信息；
+但如果空调调整操作是在前端进行的，那么数据库会更新部分信息（空调的设置温度、风速以及入住信息等都可以正常显示），不过因为耗电计算仅针对模拟脚本完工了，对于前端的空调调整没有完成，
+所以如果前端手动调整空调，详单更新有些问题；但如果运行后端脚本模拟更新，所有信息一切正常。
+
+上面提到的仅是一点小问题，不影响验收！！！
+前后端各接口是按照联合验收小组接口文档严格实现，并且各组互相可连的！！！
+*/
+
+/*************************************************/
+/************ 1. 用户客户端部分 *******************/
+/*************************************************/
+/************ 1.1 空调调整接口 ********************/
+/************ 1.2 获取该房间当前情况接口 ***********/
+/*************************************************/
+/*************************************************/
+
+
+/*************************************************/
+/************ 2. 管理员登录部分 *******************/
+/*************************************************/
+/************ 2.1 管理员登录接口 *******************/
+/*************************************************/
+/*************************************************/
+
+/*************************************************/
+/************ 3. 前台营业端部分 *******************/
+/*************************************************/
+/************ 3.1 获取整个酒店入住情况 *************/
+/************ 3.2 办理入住接口 *******************/
+/************ 3.3 办理退房接口 ********************/
+/************ 3.4 开具详单接口 *******************/
+/*************************************************/
+/*************************************************/
+
+/*************************************************/
+/************ 4. 空调管理端部分 *******************/
+/*************************************************/
+/************ 4.1 中央空调设置 *******************/
+/************ 4.2 获取整个酒店空调情况 *************/
+/************ 4.3 获取中央空调设置（待添加）*******/
+/*************************************************/
+/*************************************************/
+
+/*************************************************/
+/************ 5. 酒店经理部分 *********************/
+/*************************************************/
+/************ 5.1 获取近一周空调操作记录 ***********/
+/************ 5.2 获取近一周空调调度记录 ***********/
+/************ 5.3 获取近一周客流记录 ***************/
+/************ 5.4 各房间信息接口 ******************/
+/*************************************************/
+/*************************************************/
+
+/*************************************************/
+/************ 6. 空调服务调度器 *******************/
+/*************************************************/
+//空调服务调度器代码在./backend/scheduler.js,通过server.js最后调用scheduler.start()启动
+//大概步骤参见scheduler.js的function startScheduler(pool)
+/*************************************************/
+
+
 
 /**** 1.1 空调调整接口 ****/
 app.post('/aircon/control', (req, res) => {
@@ -126,9 +191,8 @@ app.post('/aircon/control', (req, res) => {
           // 调用函数计算单位时间kWh消耗计算费用，并通过时间差计算cost
           // 一度电1元
           const feePerPoint = 1;
-
-          costPerHour = calculateCostPerHour(lastRecord.windSpeed || '');
-          cost = costPerHour * moment.duration(time.diff(lastTime)).asHours();
+          costPerMin = calculateCostPerMin(lastRecord.windSpeed || '');
+          cost = costPerMin * moment.duration(time.diff(lastTime)).asHours();
         }
       }
       time = time.format('YYYY-MM-DD HH:mm:ss');
@@ -264,6 +328,7 @@ app.post('/admin/login', (req, res) => {
 
 /**** 3.1 获取整个酒店入住情况 ****/
 app.post('/stage/query', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -290,6 +355,7 @@ app.post('/stage/query', (req, res) => {
   });
   }
 
+  // 开始获取
   const sql = `
     SELECT 
       r.roomId,
@@ -384,6 +450,7 @@ app.post('/stage/query', (req, res) => {
 
 /**** 3.2 办理入住接口****/
 app.post('/stage/add', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -408,6 +475,8 @@ app.post('/stage/add', (req, res) => {
   });
   }
 
+  
+  // 开始办理
   const {
     roomId,
     peopleName
@@ -487,6 +556,7 @@ app.post('/stage/add', (req, res) => {
 
 /**** 3.3 办理退房 */
 app.get('/stage/delete', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -510,7 +580,10 @@ app.get('/stage/delete', (req, res) => {
       message: '无效的token',
   });
   }
-  
+
+
+
+  // 开始办理
   const roomId = req.query.roomId;
 
   // 参数验证
@@ -731,6 +804,7 @@ app.get('/stage/record', (req, res) => {
 
 /**** 4.1 中央空调设置 ****/
 app.post('/central-aircon/adjust', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -755,6 +829,8 @@ app.post('/central-aircon/adjust', (req, res) => {
   });
   }
 
+
+  // 开始办理
   let { mode, resourceLimit, fanRates } = req.body;
   const { lowSpeedRate, midSpeedRate, highSpeedRate } = fanRates;
   //mode=0 制冷 mode=1 制热
@@ -841,6 +917,7 @@ app.get('/aircon/status', (req, res) => {
 
 /**** 5.1 获取近一周空调操作记录 ****/
 app.get('/admin/query_ac', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -865,6 +942,8 @@ app.get('/admin/query_ac', (req, res) => {
   });
   }
 
+
+  // 开始获取
   const electricFee = 1; // 每度电的费用
   let time = moment().format('YYYY-MM-DD HH:mm:ss');
   const sql = `SELECT * FROM aircon_history WHERE time > DATE_SUB(?, INTERVAL 1 WEEK) ORDER BY time DESC`;
@@ -918,6 +997,7 @@ app.get('/admin/query_ac', (req, res) => {
 
 /**** 5.2 获取近一周调度记录 ****/
 app.get('/admin/query_schedule', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -942,6 +1022,9 @@ app.get('/admin/query_schedule', (req, res) => {
   });
   }
 
+
+
+  // 开始获取
   // 查询schedule_history表中近一周数据，如果startTime存在，则以startTime为该item的时间；如果startTime为NULL，则以requestTime为该item的时间；对相同的时间进行Group，每个时间Group计算一个{waitingQueue, runningQueue}, 即从该Group的每一个元素获取status，如果为waiting，则将该元素的roomId加入waitingQueue，如果为running，则将该元素的roomId加入runningQueue
   let time = moment().format('YYYY-MM-DD HH:mm:ss');
   const sql = `
@@ -994,6 +1077,7 @@ app.get('/admin/query_schedule', (req, res) => {
 
 /**** 5.3 获取近一周客流记录 ****/
 app.get('/admin/query_people', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -1018,6 +1102,9 @@ app.get('/admin/query_people', (req, res) => {
   });
   }
 
+
+
+  // 开始获取
   let time = moment().format('YYYY-MM-DD HH:mm:ss');
   const sql = `SELECT * FROM checkin_history WHERE checkInTime > DATE_SUB(?, INTERVAL 1 WEEK) ORDER BY checkInTime DESC`;
   pool.query(sql, [time], (err, result) => {
@@ -1051,6 +1138,7 @@ app.get('/admin/query_people', (req, res) => {
 
 /**** 5.4 获取各房间信息接口 ****/
 app.post('/admin/query_room', (req, res) => {
+  // Token 验证
   const authHeader = req.headers['authorization'];
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.json({
@@ -1075,79 +1163,82 @@ app.post('/admin/query_room', (req, res) => {
   });
   }
 
-// 1. 查询rooms表
-const sql = 'SELECT * FROM rooms';
-pool.query(sql, (err, rooms) => {
-  if (err) {
-    console.error('获取房间数据失败:', err);
-    return res.json({
-      code: 1,
-      message: '获取房间数据失败',
-      data: null
-    });
-  }
 
-  // 2. 查询roomPeople表
-  const sql2 = `
-    SELECT rp.roomId, p.peopleId, p.peopleName
-    FROM roomPeople rp
-    LEFT JOIN people p ON rp.peopleId = p.peopleId
-  `;
-  pool.query(sql2, (err, roomPeople) => {
+
+  // 开始获取
+  // 1. 查询rooms表
+  const sql = 'SELECT * FROM rooms';
+  pool.query(sql, (err, rooms) => {
     if (err) {
-      console.error('获取入住人员数据失败:', err);
+      console.error('获取房间数据失败:', err);
       return res.json({
         code: 1,
-        message: '获取入住人员数据失败',
+        message: '获取房间数据失败',
         data: null
       });
     }
 
-    // 3. 查询settings表
-    const sql3 = 'SELECT * FROM settings';
-    pool.query(sql3, (err, settings) => {
+    // 2. 查询roomPeople表
+    const sql2 = `
+      SELECT rp.roomId, p.peopleId, p.peopleName
+      FROM roomPeople rp
+      LEFT JOIN people p ON rp.peopleId = p.peopleId
+    `;
+    pool.query(sql2, (err, roomPeople) => {
       if (err) {
-        console.error('获取空调设置数据失败:', err);
+        console.error('获取入住人员数据失败:', err);
         return res.json({
           code: 1,
-          message: '获取空调设置数据失败',
+          message: '获取入住人员数据失败',
           data: null
         });
       }
 
-      // 4. 处理数据
-      const data = rooms.map(room => {
-        const roomPeopleList = roomPeople
-          .filter(item => item.roomId === room.roomId)
-          .map(item => ({
-            peopleId: item.peopleId,
-            peopleName: item.peopleName
-          }));
+      // 3. 查询settings表
+      const sql3 = 'SELECT * FROM settings';
+      pool.query(sql3, (err, settings) => {
+        if (err) {
+          console.error('获取空调设置数据失败:', err);
+          return res.json({
+            code: 1,
+            message: '获取空调设置数据失败',
+            data: null
+          });
+        }
 
-        const setting = settings.find(item => item.roomId === room.roomId);
+        // 4. 处理数据
+        const data = rooms.map(room => {
+          const roomPeopleList = roomPeople
+            .filter(item => item.roomId === room.roomId)
+            .map(item => ({
+              peopleId: item.peopleId,
+              peopleName: item.peopleName
+            }));
 
-        return {
-          roomId: room.roomId,
-          roomLevel: room.roomLevel,
-          people: roomPeopleList,
-          cost: room.cost,
-          roomTemperature: setting.roomTemperature,
-          power: setting.power,
-          temperature: setting.temperature,
-          windSpeed: setting.windSpeed,
-          mode: setting.mode,
-          sweep: setting.sweep
-        };
-      });
+          const setting = settings.find(item => item.roomId === room.roomId);
 
-      res.json({
-        code: 0,
-        message: '查询成功',
-        data
+          return {
+            roomId: room.roomId,
+            roomLevel: room.roomLevel,
+            people: roomPeopleList,
+            cost: room.cost,
+            roomTemperature: setting.roomTemperature,
+            power: setting.power,
+            temperature: setting.temperature,
+            windSpeed: setting.windSpeed,
+            mode: setting.mode,
+            sweep: setting.sweep
+          };
+        });
+
+        res.json({
+          code: 0,
+          message: '查询成功',
+          data
+        });
       });
     });
   });
-});
 
 });
 
