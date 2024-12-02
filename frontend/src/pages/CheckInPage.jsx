@@ -5,7 +5,7 @@ import axios from 'axios';
 import moment from 'moment';
 import { ROOM_TYPES, calculateRoomFee, formatAmount, getRoomType } from '../utils/roomUtils';
 
-const Host = import.meta.env.VITE_HOST;
+const Host = import.meta.env.VITE_DEV_SERVER_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
 const CheckInPage = () => {

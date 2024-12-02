@@ -4,7 +4,7 @@ import { ExportOutlined, ClockCircleOutlined, SettingOutlined, DollarOutlined, H
 import moment from 'moment';
 import { ROOM_TYPES, calculateRoomFee, getRoomType, formatAmount } from '../utils/roomUtils';
 
-const Host = import.meta.env.VITE_HOST;
+const Host = import.meta.env.VITE_DEV_SERVER_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
 const FeeDetailsPage = () => {

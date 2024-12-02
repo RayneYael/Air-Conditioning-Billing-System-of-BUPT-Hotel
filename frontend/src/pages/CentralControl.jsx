@@ -14,7 +14,7 @@ import axios from 'axios';
 
 const { Option } = Select;
 
-const Host = import.meta.env.VITE_HOST;
+const Host = import.meta.env.VITE_DEV_SERVER_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
 const CentralControl = () => {

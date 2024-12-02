@@ -8,7 +8,7 @@ import ConsumptionPanel from './ConsumptionPanel'; // 引入计费模块
 import { useParams, useNavigate } from 'react-router-dom';
 
 const { Option } = Select;
-const Host = import.meta.env.VITE_HOST;
+const Host = import.meta.env.VITE_DEV_SERVER_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
 // const roomId = localStorage.getItem('roomId');
