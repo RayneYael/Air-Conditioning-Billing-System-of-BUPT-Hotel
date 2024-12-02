@@ -667,7 +667,7 @@ function queryDatabase(pool, sql, params = []) {
 
 async function startScheduler(pool) {
     console.log("Scheduler started...");
-    let time = '2024-11-25 00:00:00';
+    let time = '2024-12-2 15:40:00';
 
     setInterval(async () => {
         try {
