@@ -47,13 +47,13 @@ const ConsumptionPanel = ({ cost = 12.06, totalCost = 24.12 }) => {
               }}>
                 ¥ {formatAmount(cost * 5)} {/* 假设每度电5元 */}
               </span>
-              <span style={{
+              {/* <span style={{
                 fontSize: '12px',
                 color: '#bfbfbf',
                 marginLeft: '8px'
               }}>
                 (2小时前)
-              </span>
+              </span> */}
             </div>
           </div>
         </div>
@@ -106,13 +106,13 @@ const ConsumptionPanel = ({ cost = 12.06, totalCost = 24.12 }) => {
               }}>
                 {formatAmount(cost)} kW·h
               </span>
-              <span style={{
+              {/* <span style={{
                 fontSize: '12px',
                 color: '#bfbfbf',
                 marginLeft: '8px'
               }}>
                 (2小时前)
-              </span>
+              </span> */}
             </div>
           </div>
         </div>

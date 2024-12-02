@@ -196,41 +196,6 @@ async function update_database(pool, time) {
             }
         }
 
-        // const sqlSettings = `SELECT * FROM settings WHERE power = 'on'`;
-        // const settingsResult = await queryDatabase(sqlSettings);
-
-        // for (const row of settingsResult) {
-        //     const { roomId, windSpeed, totalCost } = row;
-        //     let cost = 0;
-
-        //     // 根据风速计算当前用电量
-        //     if (windSpeed === '高') {
-        //         cost = 1; // 高风速：1度/分钟
-        //     } else if (windSpeed === '中') {
-        //         cost = 1 / 2; // 中风速：0.5度/分钟
-        //     } else {
-        //         cost = 1 / 3; // 低风速：0.33度/分钟
-        //     }
-
-        //     const updatedTotalCost = totalCost + cost;
-
-        //     // 更新 settings 表中的 cost 和 totalCost
-        //     const sqlUpdateSettings = `UPDATE settings SET cost = ?, totalCost = ? WHERE roomId = ?`;
-        //     await queryDatabase(sqlUpdateSettings, [cost, updatedTotalCost, roomId]);
-
-        //     // 查询 aircon_history 表中 roomId 最近一条记录
-        //     const sqlSelectHistory = `SELECT * FROM aircon_history WHERE roomId = ? ORDER BY time DESC LIMIT 1`;
-        //     const historyResult = await queryDatabase(sqlSelectHistory, [roomId]);
-
-        //     if (historyResult.length > 0) {
-        //         const historyId = historyResult[0].id;
-
-        //         // 更新 aircon_history 表中最近一条记录的 cost
-        //         const sqlUpdateHistory = `UPDATE aircon_history SET cost = ? WHERE id = ?`;
-        //         await queryDatabase(sqlUpdateHistory, [cost, historyId]);
-        //     }
-        // }
-
         // 调用 simulate_temperature_change 模拟温度变化并更新数据库
         await simulate_temperature_change(pool, time);
     } catch (err) {
@@ -434,25 +399,6 @@ async function handle_user_operation(pool, time) {
                 `;
                 await queryDatabase(sqlUpdateHistory, [setTemperature, roomId]);
             }
-            // 调温不影响调度，不计入了
-            // const sqlSelectAllSettings = `SELECT * FROM settings WHERE roomId BETWEEN 2001 AND 2005`;
-            // const allSettings = await queryDatabase(sqlSelectAllSettings);
-
-            // for (const row of allSettings) {
-            //     const { roomId, power, roomTemperature, windSpeed, mode } = row;
-            //     const sqlInsertHistory = `
-            //         INSERT INTO aircon_history (roomId, time, power, temperature, windSpeed, mode) 
-            //         VALUES (?, ?, ?, ?, ?, ?)
-            //     `;
-            //     await queryDatabase(sqlInsertHistory, [
-            //         roomId,
-            //         time,
-            //         power,
-            //         roomTemperature,
-            //         windSpeed,
-            //         mode,
-            //     ]);
-            // }
         } catch (err) {
             console.error('Error handling wind/temperature operations:', err);
         }

@@ -5,14 +5,19 @@ import axios from 'axios';
 import "../App.css"
 import WeatherModule from './WeatherModule'; // 引入天气模块
 import ConsumptionPanel from './ConsumptionPanel'; // 引入计费模块
-
+import { useParams, useNavigate } from 'react-router-dom';
 
 const { Option } = Select;
 const Host = import.meta.env.VITE_HOST;
 const Port = import.meta.env.VITE_API_PORT;
 
+// const roomId = localStorage.getItem('roomId');
 
 const ControlPanelPage = () => {
+
+  const { roomId } = useParams(); // 从 URL 获取 roomId
+  const navigate = useNavigate();
+
   const [roomTemperature, setRoomTemperature] = useState(24); // 温度初始为24度
   const [power, setPower] = useState(false); // 开关状态
   const [temperature, setTemperature] = useState(26); // 温度初始为26度
@@ -24,62 +29,75 @@ const ControlPanelPage = () => {
 
   const snowflakeContainer = useRef(null);  // 用于获取雪花的容器引用
 
-  
+  const refreshIntervalRef = useRef(null); // 用于存储定时器ID的ref
+
+
+  // 提取默认设置到一个函数
+  const setDefaultSettings = () => {
+    setRoomTemperature(24);
+    setPower(false);
+    setTemperature(26);
+    setWindSpeed('低');
+    setMode('制冷');
+    setSweep(false);
+    setCost(12.06);
+    setTotalCost(24.12);
+  };
+
+  const fetchSettings = async () => {
+    try {
+      // 使用查询参数的方式请求 API
+      const response = await axios.get(`http://${Host}:${Port}/aircon/panel`, {
+        params: {
+          roomId: roomId
+        }
+      });
+
+      // 检查响应格式
+      if (response.data.code === 0) {  // 添加响应码检查
+        const settings = response.data.data;  // 从 data 字段获取设置数据
+        if (settings) {
+          // 使用数据库中的值更新状态
+          setRoomTemperature(settings.roomTemperature || 24);
+          setPower(settings.power === 'on');
+          setTemperature(settings.temperature || 26);
+          setWindSpeed(settings.windSpeed || '低');
+          setMode(settings.mode || '制冷');
+          setSweep(settings.sweep === '开');
+          setCost(settings.cost || 12.06);
+          setTotalCost(settings.totalCost || 24.12);
+        } else {
+          message.warning('未找到房间设置，使用默认值');
+          // 使用默认值
+          setDefaultSettings();
+        }
+      } else {
+        message.error(response.data.message || '获取设置失败');
+        setDefaultSettings();
+      }
+    } catch (error) {
+      message.error('获取设置失败，使用默认设置');
+      console.error('获取设置错误:', error);
+      setDefaultSettings();
+    }
+  };
 
   // 页面加载时从数据库获取当前的设置
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        // 使用查询参数的方式请求 API
-        const response = await axios.get(`http://${Host}:${Port}/api/controlPanelSettings`, {
-          params: {
-            roomId: roomId
-          }
-        });
-
-        // 检查响应格式
-        if (response.data.code === 0) {  // 添加响应码检查
-          const settings = response.data.data;  // 从 data 字段获取设置数据
-          if (settings) {
-            // 使用数据库中的值更新状态
-            setRoomTemperature(settings.roomTemperature || 24);
-            setPower(settings.power === 'on');
-            setTemperature(settings.temperature || 26);
-            setWindSpeed(settings.windSpeed || '低');
-            setMode(settings.mode || '制冷');
-            setSweep(settings.sweep === '开');
-            setCost(settings.cost || 12.06);
-            setTotalCost(settings.totalCost || 24.12);
-          } else {
-            message.warning('未找到房间设置，使用默认值');
-            // 使用默认值
-            setDefaultSettings();
-          }
-        } else {
-          message.error(response.data.message || '获取设置失败');
-          setDefaultSettings();
-        }
-      } catch (error) {
-        message.error('获取设置失败，使用默认设置');
-        console.error('获取设置错误:', error);
-        setDefaultSettings();
+    // 首次加载立即获取数据
+    fetchSettings();
+  
+    // 设置1秒间隔的定时刷新
+    refreshIntervalRef.current = setInterval(fetchSettings, 1000);
+  
+    // 组件卸载时的清理函数
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
       }
     };
+  }, [roomId]); // 只在roomId变化时重新设置
 
-    // 提取默认设置到一个函数
-    const setDefaultSettings = () => {
-      setRoomTemperature(24);
-      setPower(false);
-      setTemperature(26);
-      setWindSpeed('低');
-      setMode('制冷');
-      setSweep(false);
-      setCost(12.06);
-      setTotalCost(24.12);
-    };
-
-    fetchSettings();
-  }, [roomId]);
 
   // 动态生成雪花
   useEffect(() => {
@@ -175,7 +193,7 @@ const ControlPanelPage = () => {
     };
 
     // 发送POST请求
-    axios.post(`http://${Host}:${Port}/api/controlPanelSettings`, requestData)
+    axios.post(`http://${Host}:${Port}/aircon/control`, requestData)
       .then(response => {
         // 检查响应状态
         if (response.data.code === 0) {

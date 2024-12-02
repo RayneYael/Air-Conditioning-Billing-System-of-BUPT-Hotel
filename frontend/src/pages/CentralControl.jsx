@@ -22,13 +22,107 @@ const CentralControl = () => {
   const [roomData, setRoomData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 总控状态（仅展示）
+  // 总控状态
   const [globalMode, setGlobalMode] = useState('cooling'); // 'cooling' or 'heating'
   const [globalFanSpeed, setGlobalFanSpeed] = useState('low'); // 'low', 'medium', 'high'
   const [resourceLimit, setResourceLimit] = useState(0); // 资源数
   const [lowSpeedRate, setLowSpeedRate] = useState(1); // 低速费率
   const [midSpeedRate, setMidSpeedRate] = useState(2); // 中速费率
   const [highSpeedRate, setHighSpeedRate] = useState(3); // 高速费率
+
+
+  // 更新中央空调设置
+  const updateCentralSettings = async (updatedSettings) => {
+    try {
+      const token = localStorage.getItem('token'); // Assuming token is stored in localStorage
+
+      const response = await axios.post(
+        `http://${Host}:${Port}/central-aircon/adjust`,
+        {
+          mode: updatedSettings.mode === 'cooling' ? 0 : 1, // Convert mode to number
+          resourceLimit: updatedSettings.resourceLimit,
+          fanRates: {
+            lowSpeedRate: updatedSettings.lowSpeedRate,
+            midSpeedRate: updatedSettings.midSpeedRate,
+            highSpeedRate: updatedSettings.highSpeedRate
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.code === 0) {
+        message.success('设置更新成功');
+        return true;
+      } else {
+        message.error(response.data.message || '设置更新失败');
+        return false;
+      }
+    } catch (error) {
+      message.error('设置更新失败: ' + (error.response?.data?.message || error.message));
+      return false;
+    }
+  };
+
+  // Event handlers for setting changes
+  const handleModeChange = async (value) => {
+    const success = await updateCentralSettings({
+      mode: value,
+      resourceLimit,
+      lowSpeedRate,
+      midSpeedRate,
+      highSpeedRate
+    });
+    if (success) setGlobalMode(value);
+  };
+
+  const handleResourceLimitChange = async (value) => {
+    const success = await updateCentralSettings({
+      mode: globalMode,
+      resourceLimit: value,
+      lowSpeedRate,
+      midSpeedRate,
+      highSpeedRate
+    });
+    if (success) setResourceLimit(value);
+  };
+
+  const handleLowSpeedRateChange = async (value) => {
+    const success = await updateCentralSettings({
+      mode: globalMode,
+      resourceLimit,
+      lowSpeedRate: value,
+      midSpeedRate,
+      highSpeedRate
+    });
+    if (success) setLowSpeedRate(value);
+  };
+
+  const handleMidSpeedRateChange = async (value) => {
+    const success = await updateCentralSettings({
+      mode: globalMode,
+      resourceLimit,
+      lowSpeedRate,
+      midSpeedRate: value,
+      highSpeedRate
+    });
+    if (success) setMidSpeedRate(value);
+  };
+
+  const handleHighSpeedRateChange = async (value) => {
+    const success = await updateCentralSettings({
+      mode: globalMode,
+      resourceLimit,
+      lowSpeedRate,
+      midSpeedRate,
+      highSpeedRate: value
+    });
+    if (success) setHighSpeedRate(value);
+  };
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,13 +134,14 @@ const CentralControl = () => {
           // 处理每条记录，确保数值类型正确
           const processedData = response.data.data.map(room => ({
             roomId: room.roomId,
-            checkedIn: room.checkedIn ?? false,
+            // checkedIn: room.checkedIn ?? false,
             power: room.power === 'on',
+            windSpeed: room.windSpeed,
             mode: room.mode,
             roomTemperature: parseInt(room.roomTemperature),
             temperature: parseInt(room.temperature),
             totalFee: parseFloat(room.totalCost).toFixed(2),
-            checkedIn: room.checkedIn
+            // checkedIn: room.checkedIn
           }));
           setRoomData(processedData);
         } else {
@@ -60,8 +155,17 @@ const CentralControl = () => {
       }
     };
 
-    fetchData();
-  }, []);
+    // 立即执行一次
+  fetchData();
+
+  // 设置定时器，每秒执行一次
+  const timer = setInterval(fetchData, 1000);
+
+  // 组件卸载时清除定时器
+  return () => {
+    clearInterval(timer);
+  };
+}, []);
 
 
   // const calculateTotalFee = async (roomId) => {
@@ -105,24 +209,24 @@ const CentralControl = () => {
         <Tag className="bg-blue-100 text-blue-800 border-0 text-base px-3 py-1">{roomId}</Tag>
       ),
     },
-    {
-      title: '是否入住',
-      dataIndex: 'checkedIn',
-      key: 'checkedIn',
-      width: 120, // 设置列宽
-      align: 'center',
-      className: 'text-base font-medium',
-      render: (checkedIn) =>
-        checkedIn ? (
-          <Tag icon={<CheckCircleOutlined />} className="bg-green-100 text-green-800 border-0 text-base px-3 py-1">
-            已入住
-          </Tag>
-        ) : (
-          <Tag icon={<CloseCircleOutlined />} className="bg-gray-100 text-gray-800 border-0 text-base px-3 py-1">
-            空闲房间
-          </Tag>
-        ),
-    },
+    // {
+    //   title: '是否入住',
+    //   dataIndex: 'checkedIn',
+    //   key: 'checkedIn',
+    //   width: 120, // 设置列宽
+    //   align: 'center',
+    //   className: 'text-base font-medium',
+    //   render: (checkedIn) =>
+    //     checkedIn ? (
+    //       <Tag icon={<CheckCircleOutlined />} className="bg-green-100 text-green-800 border-0 text-base px-3 py-1">
+    //         已入住
+    //       </Tag>
+    //     ) : (
+    //       <Tag icon={<CloseCircleOutlined />} className="bg-gray-100 text-gray-800 border-0 text-base px-3 py-1">
+    //         空闲房间
+    //       </Tag>
+    //     ),
+    // },
     {
       title: '空调开关',
       dataIndex: 'power',
@@ -156,6 +260,15 @@ const CentralControl = () => {
           {mode}
         </Tag>
       ),
+    },
+    {
+      title: '风速',
+      dataIndex: 'windSpeed',
+      key: 'windSpeed',
+      width: 70, // 设置列宽
+      align: 'center',
+      className: 'text-base font-medium',
+      render: (windSpeed) => <span className="text-base">{windSpeed}</span>,
     },
     {
       title: '房间温度',
@@ -193,7 +306,7 @@ const CentralControl = () => {
       className: 'text-base font-medium',
       render: (_, record) => (
         <Space size="middle">
-          <Tooltip title="查看详情">
+          {/* <Tooltip title="查看详情">
             <Button
               type="primary"
               shape="circle"
@@ -201,10 +314,10 @@ const CentralControl = () => {
               icon={<EyeOutlined />}
               onClick={() => {
                 localStorage.setItem('roomId', record.roomId);
-                navigate("/home/feeDetails");
+                // navigate("/home/feeDetails");
               }}
             />
-          </Tooltip>
+          </Tooltip> */}
           <Tooltip title="修改">
             <Button
               type="default"
@@ -212,8 +325,8 @@ const CentralControl = () => {
               size="middle"
               icon={<EditOutlined />}
               onClick={() => {
-                localStorage.setItem('roomId', record.roomId);
-                navigate("/home/controlpanel");
+                // localStorage.setItem('roomId', record.roomId);
+                navigate(`/room/${record.roomId}`);
               }}
             />
           </Tooltip>
@@ -235,7 +348,7 @@ const CentralControl = () => {
             <span className="text-gray-600 font-medium">模式:</span>
             <Select
               value={globalMode}
-              onChange={(value) => setGlobalMode(value)}
+              onChange={handleModeChange}
               style={{ width: 100 }}
             >
               <Option value="cooling">制冷</Option>
@@ -244,41 +357,41 @@ const CentralControl = () => {
           </div>
           <Divider type="vertical" className="h-8 bg-gray-300" />
           <div className="flex items-center gap-2">
-            <span className="text-gray-600 font-medium">空调可用资源数 :</span>
+            <span className="text-gray-600 font-medium">空调可用资源数:</span>
             <InputNumber
               min={0}
               value={resourceLimit}
-              onChange={(value) => setResourceLimit(value)}
+              onChange={handleResourceLimitChange}
               style={{ width: 80 }}
             />
           </div>
           <Divider type="vertical" className="h-8 bg-gray-300" />
           <div className="flex items-center gap-2">
-            <span className="text-gray-600 font-medium">低风速费率 :</span>
+            <span className="text-gray-600 font-medium">低风速费率:</span>
             <InputNumber
               min={0}
               value={lowSpeedRate}
-              onChange={(value) => setLowSpeedRate(value)}
+              onChange={handleLowSpeedRateChange}
               style={{ width: 80 }}
             />
           </div>
           <Divider type="vertical" className="h-8 bg-gray-300" />
           <div className="flex items-center gap-2">
-            <span className="text-gray-600 font-medium">中风速费率 :</span>
+            <span className="text-gray-600 font-medium">中风速费率:</span>
             <InputNumber
               min={0}
               value={midSpeedRate}
-              onChange={(value) => setMidSpeedRate(value)}
+              onChange={handleMidSpeedRateChange}
               style={{ width: 80 }}
             />
           </div>
           <Divider type="vertical" className="h-8 bg-gray-300" />
           <div className="flex items-center gap-2">
-            <span className="text-gray-600 font-medium">高风速费率 :</span>
+            <span className="text-gray-600 font-medium">高风速费率:</span>
             <InputNumber
               min={0}
               value={highSpeedRate}
-              onChange={(value) => setHighSpeedRate(value)}
+              onChange={handleHighSpeedRateChange}
               style={{ width: 80 }}
             />
           </div>

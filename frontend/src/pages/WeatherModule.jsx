@@ -21,6 +21,14 @@ const WeatherModule = () => {
             }
         };
         fetchWeatherData();
+
+        // 设置定时器，每五分钟执行一次
+        const timer = setInterval(fetchWeatherData, 300000);
+
+        // 组件卸载时清除定时器
+        return () => {
+            clearInterval(timer);
+        };
     }, []);
 
     // 如果数据还在加载或者有错误，显示相应信息
