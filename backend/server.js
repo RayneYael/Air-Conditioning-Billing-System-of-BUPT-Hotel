@@ -126,7 +126,7 @@ app.post('/aircon/control', (req, res) => {
   const{power, temperature, windSpeed, sweep} = newSettings;
   let mode = '';
 
-  // 从central_settings表中获取mode, central_settings表中只有一行数据
+  // 从central_settings表中获取mode
   const sqlGetMode = 'SELECT * FROM central_settings';
 
   pool.query(sqlGetMode, (err, result) => {
@@ -340,7 +340,7 @@ app.post('/stage/query', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '前台服务' && decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -462,7 +462,7 @@ app.post('/stage/add', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '前台服务' && decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -568,7 +568,7 @@ app.get('/stage/delete', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '前台服务' && decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -816,7 +816,7 @@ app.post('/central-aircon/adjust', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '空调管理' && decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -829,16 +829,30 @@ app.post('/central-aircon/adjust', (req, res) => {
   });
   }
 
-
   // 开始办理
   let { mode, resourceLimit, fanRates } = req.body;
   const { lowSpeedRate, midSpeedRate, highSpeedRate } = fanRates;
+
+  if (resourceLimit !== 0 && resourceLimit !== 1) {
+    return res.json({
+      code: 1,
+      message: '设置失败, resourceLimit只能选择0或1'
+    });
+  }
+
   //mode=0 制冷 mode=1 制热
   if (mode === 0) {
     mode = '制冷';
   } else if (mode === 1) {
     mode = '制热';
   }
+
+  // resourceLimit = 0 为无资源限制， resourceLimit = 1 为有资源限制（默认设为3）
+  if (resourceLimit === 1) {
+    resourceLimit = 3;
+  }
+
+
   const sql = 'UPDATE central_settings SET mode = ?, resourceLimit = ?, lowSpeedRate = ?, midSpeedRate = ?, highSpeedRate = ?';
   pool.query(sql, [mode, resourceLimit, lowSpeedRate, midSpeedRate, highSpeedRate], (err) => {
     if (err) {
@@ -857,6 +871,31 @@ app.post('/central-aircon/adjust', (req, res) => {
 
 /**** 4.2 获取所有房间的详细信息（包括空调设置） ****/
 app.get('/aircon/status', (req, res) => {
+  // Token 验证
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.json({
+        code: 1,
+        message: '未提供有效的 Authorization 头',
+        data: null
+    });
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, jwtSecretKey);
+    if (decoded.role !== '空调管理' && decoded.role !== '酒店经理') {
+        return res.json({
+            code: 1,
+            message: '无权限',
+        });
+    }
+  } catch(err){
+    return res.json({
+      code: 1,
+      message: '无效的token',
+  });
+  }
+
   const sql = `
     SELECT 
       r.roomId,
@@ -929,7 +968,7 @@ app.get('/admin/query_ac', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -1009,7 +1048,7 @@ app.get('/admin/query_schedule', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -1022,20 +1061,11 @@ app.get('/admin/query_schedule', (req, res) => {
   });
   }
 
-
-
-  // 开始获取
-  // 查询schedule_history表中近一周数据，如果startTime存在，则以startTime为该item的时间；如果startTime为NULL，则以requestTime为该item的时间；对相同的时间进行Group，每个时间Group计算一个{waitingQueue, runningQueue}, 即从该Group的每一个元素获取status，如果为waiting，则将该元素的roomId加入waitingQueue，如果为running，则将该元素的roomId加入runningQueue
+  // 获取近一周的调度队列记录
   let time = moment().format('YYYY-MM-DD HH:mm:ss');
   const sql = `
-    SELECT *
-    FROM (
-      SELECT 
-        roomId, 
-        status, 
-        COALESCE(start_time, requestTime) AS time
-      FROM schedule_history
-    ) AS subquery
+    SELECT time, waitingQueue, runningQueue
+    FROM schedule_queue
     WHERE time > DATE_SUB(?, INTERVAL 1 WEEK)
     ORDER BY time DESC;
   `;
@@ -1050,27 +1080,17 @@ app.get('/admin/query_schedule', (req, res) => {
       });
     }
 
-    const groupedData = result.reduce((acc, item) => {
-      const time = item.time;
-      if (!acc[time]) {
-        acc[time] = { waitingQueue: [], runningQueue: [] };
-      }
-      if (item.status === 'waiting') {
-        acc[time].waitingQueue.push(item.roomId);
-      } else if (item.status === 'running') {
-        acc[time].runningQueue.push(item.roomId);
-      }
-      return acc;
-    }, {});
+    // 解析存储的 JSON 字符串
+    const data = result.map(record => ({
+      time: record.time,
+      waitingQueue: JSON.parse(record.waitingQueue),
+      runningQueue: JSON.parse(record.runningQueue)
+    }));
 
     res.json({
       code: 0,
       message: '查询成功',
-      data: Object.keys(groupedData).map(time => ({
-        time,
-        waitingQueue: groupedData[time].waitingQueue,
-        runningQueue: groupedData[time].runningQueue
-      }))
+      data: data
     });
   });
 });
@@ -1089,7 +1109,7 @@ app.get('/admin/query_people', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -1150,7 +1170,7 @@ app.post('/admin/query_room', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, jwtSecretKey);
-    if (decoded.role === '房间') {
+    if (decoded.role !== '酒店经理') {
         return res.json({
             code: 1,
             message: '无权限',
@@ -1239,7 +1259,6 @@ app.post('/admin/query_room', (req, res) => {
       });
     });
   });
-
 });
 
 

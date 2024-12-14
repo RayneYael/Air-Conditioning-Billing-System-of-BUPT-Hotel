@@ -669,8 +669,8 @@ function queryDatabase(pool, sql, params = []) {
 
 async function startScheduler(pool) {
     console.log("Scheduler started...");
-    let time = '2024-12-2 15:40:00';
-
+    let time = '2024-12-13 15:40:00';
+    
     setInterval(async () => {
         try {
             // step1:更新当前时间
@@ -694,6 +694,12 @@ async function startScheduler(pool) {
             console.log('runningQueue:', runningQueue);
             console.log('waitingQueue:', waitingQueue);
             console.log('offQueue:', offQueue);
+            // 更新schedule_Queue表，插入time，waitingQueue和runningQueue字段（waitingQueue和runningQueue在数据库中都是JSON格式）
+            const waitingRooms = Object.values(waitingQueue).flat();
+            const sql = `INSERT INTO schedule_Queue (time, waitingQueue, runningQueue) VALUES (?, ?, ?)`;
+            const waitingQueueStr = JSON.stringify(waitingRooms); // 直接存储房间号数组
+            const runningQueueStr = JSON.stringify(runningQueue);
+            await queryDatabase(pool, sql, [time, waitingQueueStr, runningQueueStr]);
             console.log('step4: 调度结束');
 
             // step5:更新数据库（包括模拟温度变化更新）
