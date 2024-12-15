@@ -133,6 +133,9 @@ Open a web browser and navigate to `http://localhost:3000` to view the frontend,
 
 If you are accessing the application from a different device (e.g., your phone), make sure the device is connected to the same network and use your computer's local IP address (e.g., `http://192.168.1.x:3000`).<br />另一设备连接服务器电脑同一wifi，访问http：//你的服务器ip：3000 即可跨设备访问web页面
 
+### 8. start scheduler
+取消server.js底部的// scheduler.start(pool)  注释，即可开启调度。
+
 ### Project Structure
 
 ```plaintext
@@ -145,7 +148,8 @@ team-work/
 │   ├── .env                # Environment variables for backend
 │   ├── package-lock.json   # Backend lockfile
 │   ├── package.json        # Backend dependencies manifest
-│   └── server.js           # Main backend server file
+│   ├── server.js           # Main backend server file
+│   ├── scheduler.js        # 调度器
 │
 ├── frontend/               # Frontend (React with Vite)
 │   ├── node_modules/       # Frontend dependencies
