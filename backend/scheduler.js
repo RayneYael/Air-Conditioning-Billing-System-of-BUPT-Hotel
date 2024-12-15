@@ -185,8 +185,12 @@ async function update_database(pool, time) {
             const sqlUpdateSettings = `UPDATE settings SET cost = ?, totalCost = ? WHERE roomId = ?`;
             await queryDatabase(sqlUpdateSettings, [cost+costPerMin, updatedTotalCost, roomId]);
 
+            const sqlUpdateRoom = `UPDATE rooms SET cost = ? WHERE roomId = ?`;
+            await queryDatabase(sqlUpdateRoom, [updatedTotalCost, roomId]);
+
             const sqlSelectHistory = `SELECT * FROM aircon_history WHERE roomId = ? ORDER BY time DESC LIMIT 1`;
             const historyResult = await queryDatabase(sqlSelectHistory, [roomId]);
+
 
             if (historyResult.length > 0) {
                 const historyId = historyResult[0].id;
