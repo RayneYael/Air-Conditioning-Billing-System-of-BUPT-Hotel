@@ -1,6 +1,6 @@
-# Our Team Work
+# BUPT HOTEL - OUR TEAM WORK
 
-This is a web application for managing team-work operations, including features like user login, check-in management, and fee details. The project consists of a frontend built using React with Vite and a backend built using Express and MySQL.
+This is a web application for managing BUPT HOTEL Fee operations, including features like user login, check-in management, and fee details. The project consists of a frontend built using React with Vite and a backend built using Express and MySQL.
 
 ## Prerequisites
 
