@@ -23,18 +23,20 @@ const CentralControl = () => {
   const [loading, setLoading] = useState(true);
 
   // 总控状态
-  const [globalMode, setGlobalMode] = useState('cooling'); // 'cooling' or 'heating'
+  const [globalMode, setGlobalMode] = useState('heating'); // 'cooling' or 'heating'
   const [globalFanSpeed, setGlobalFanSpeed] = useState('low'); // 'low', 'medium', 'high'
   const [resourceLimit, setResourceLimit] = useState(0); // 资源数
   const [lowSpeedRate, setLowSpeedRate] = useState(1); // 低速费率
   const [midSpeedRate, setMidSpeedRate] = useState(2); // 中速费率
   const [highSpeedRate, setHighSpeedRate] = useState(3); // 高速费率
 
+  
 
   // 更新中央空调设置
   const updateCentralSettings = async (updatedSettings) => {
     try {
-      const token = localStorage.getItem('token'); // Assuming token is stored in localStorage
+      
+      const token = localStorage.getItem('token');
 
       const response = await axios.post(
         `http://${Host}:${Port}/central-aircon/adjust`,
@@ -128,7 +130,14 @@ const CentralControl = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`http://${Host}:${Port}/aircon/status`);
+        const token = localStorage.getItem('token');
+        console.log(token)
+        const response = await axios.get(`http://${Host}:${Port}/aircon/status`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            }
+          });
 
         if (response.data.code === 0) {
           // 处理每条记录，确保数值类型正确
@@ -141,7 +150,7 @@ const CentralControl = () => {
             roomTemperature: parseInt(room.roomTemperature),
             temperature: parseInt(room.temperature),
             totalFee: parseFloat(room.totalCost).toFixed(2),
-            // checkedIn: room.checkedIn
+            checkedIn: room.checkedIn
           }));
           setRoomData(processedData);
         } else {
@@ -155,7 +164,7 @@ const CentralControl = () => {
       }
     };
 
-    // 立即执行一次
+  // 立即执行一次
   fetchData();
 
   // 设置定时器，每秒执行一次

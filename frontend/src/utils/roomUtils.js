@@ -23,6 +23,7 @@ export const calculateRoomFee = (checkInTime, roomType) => {
 
   const checkIn = moment(checkInTime).local();
   const now = moment().local();
+  // const now = moment('2024-01-01 14:30:00');
   const checkInDay = checkIn.startOf('day');
   const nowDay = now.startOf('day');
 

@@ -35,6 +35,7 @@ const LoginPage = () => {
       try {
         // 发送异步请求
         const res = await axios.post(`http://${Host}:${Port}/admin/login`, values);
+        console.log('Request URL:', `http://${Host}:${Port}/admin/login`);
         // 返回值中code为0表示成功，否则表示失败, message中包含错误信息
         if (res.data.code === 1){
           // antd提醒message.error(res.data.message);
@@ -43,7 +44,7 @@ const LoginPage = () => {
         }
         // 保存 token 等信息
         saveToken(res.data.token, values.username, res.data.role);
-
+        console.log("nihao");
         // 立即跳转到 /home
         navigate('/home');
         // toast.success(`${values.username}, 登录成功`);

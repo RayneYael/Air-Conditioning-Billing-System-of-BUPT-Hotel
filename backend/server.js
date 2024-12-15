@@ -1266,5 +1266,5 @@ app.listen(PORT, Host, () => {
   console.log(`Server is running on http://${Host}:${PORT}`);
   
   // 启动调度器
-  scheduler.start(pool);
+  // scheduler.start(pool);
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Row, Col } from 'antd';
 
-const ConsumptionPanel = ({ cost = 12.06, totalCost = 24.12 }) => {
+const ConsumptionPanel = ({cost, totalCost}) => {
   // 将金额格式化为两位小数
   const formatAmount = (amount) => Number(amount).toFixed(2);
   
@@ -29,7 +29,7 @@ const ConsumptionPanel = ({ cost = 12.06, totalCost = 24.12 }) => {
             fontWeight: 'bold',
             lineHeight: '1.2'
           }}>
-            ¥ {formatAmount(totalCost * 5)} {/* 假设每度电5元 */}
+            ¥ {formatAmount(totalCost)} 
           </div>
           <div style={{ marginTop: '12px' }}>
             <div style={{
@@ -45,7 +45,7 @@ const ConsumptionPanel = ({ cost = 12.06, totalCost = 24.12 }) => {
                 fontSize: '15px',
                 fontWeight: '500'
               }}>
-                ¥ {formatAmount(cost * 5)} {/* 假设每度电5元 */}
+                ¥ {formatAmount(cost * 1)}
               </span>
               {/* <span style={{
                 fontSize: '12px',

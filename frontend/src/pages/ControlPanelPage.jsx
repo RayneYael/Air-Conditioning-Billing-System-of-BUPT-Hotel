@@ -40,8 +40,8 @@ const ControlPanelPage = () => {
     setWindSpeed('低');
     setMode('制冷');
     setSweep(false);
-    setCost(12.06);
-    setTotalCost(24.12);
+    setCost(0);
+    setTotalCost(0);
   };
 
   const fetchSettings = async () => {
@@ -64,8 +64,8 @@ const ControlPanelPage = () => {
           setWindSpeed(settings.windSpeed || '低');
           setMode(settings.mode || '制冷');
           setSweep(settings.sweep === '开');
-          setCost(settings.cost || 12.06);
-          setTotalCost(settings.totalCost || 24.12);
+          setCost(settings.cost);
+          setTotalCost(settings.totalCost);
         } else {
           message.warning('未找到房间设置，使用默认值');
           // 使用默认值

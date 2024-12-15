@@ -4,6 +4,8 @@ import { CheckOutlined, PrinterOutlined, LogoutOutlined, SearchOutlined, HomeOut
 import axios from 'axios';
 import moment from 'moment';
 import { ROOM_TYPES, calculateRoomFee, formatAmount, getRoomType } from '../utils/roomUtils';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const Host = import.meta.env.VITE_DEV_SERVER_HOST;
 const Port = import.meta.env.VITE_API_PORT;
@@ -180,6 +182,74 @@ const CheckInPage = () => {
       // 添加样式定位
       style: { top: '30%' },
     });
+  };
+
+
+  // 在 CheckInPage 组件内添加打印函数
+  const handlePrint = async () => {
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+      
+      // 创建包含标题和房间信息的元素
+      const headerDiv = document.createElement('div');
+      headerDiv.style.fontFamily = '"Microsoft YaHei", Arial, sans-serif';
+      headerDiv.style.textAlign = 'center';
+      headerDiv.style.padding = '10px';
+      headerDiv.innerHTML = `
+        <div style="font-size: 140px; font-weight: bold; margin-bottom: 20px;">波普特酒店费用详单</div>
+        <div style="font-size: 80px; color: #666;">
+          房间号：${selectedRoom?.roomId} &nbsp;&nbsp;
+          房间类型：${selectedRoom?.roomLevel}
+        </div>
+      `;
+      document.body.appendChild(headerDiv);
+      
+      // 将标题转换为图片
+      const headerCanvas = await html2canvas(headerDiv);
+      document.body.removeChild(headerDiv);
+  
+      // 转换主内容
+      const element = document.getElementById('fee-modal-content');
+      const contentCanvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      // 添加标题和房间信息图片到PDF
+      const headerWidth = 170; // 增加宽度以适应更多内容
+      const headerHeight = headerCanvas.height * headerWidth / headerCanvas.width;
+      pdf.addImage(
+        headerCanvas.toDataURL('image/jpeg'), 
+        'JPEG', 
+        (pdf.internal.pageSize.width - headerWidth) / 2, // 水平居中
+        10, // 距离顶部10mm
+        headerWidth, 
+        headerHeight
+      );
+      
+      // 添加主要内容
+      const contentWidth = 170;
+      const contentHeight = contentCanvas.height * contentWidth / contentCanvas.width;
+      pdf.addImage(
+        contentCanvas.toDataURL('image/jpeg', 1.0), 
+        'JPEG', 
+        20, // 左边距20mm
+        headerHeight + 20, // 标题下方20mm处
+        contentWidth, 
+        contentHeight
+      );
+      
+      pdf.save(`房间${selectedRoom?.roomId}费用详单.pdf`);
+      message.success('费用详单已保存为PDF');
+    } catch (error) {
+      console.error('生成PDF失败:', error);
+      message.error('生成PDF失败');
+    }
   };
 
   const showFeeDetailsModal = (record) => {
@@ -457,6 +527,7 @@ const CheckInPage = () => {
               key="print"
               type="primary"
               icon={<PrinterOutlined />}
+              onClick={handlePrint}
               className="mr-2"
             >
               打印详单
@@ -473,7 +544,7 @@ const CheckInPage = () => {
           className="rounded-lg"
           style={{ top: '1%' }}
         >
-          <div className="space-y-4">
+          <div id="fee-modal-content" className="space-y-4 bg-white p-6">
             {/* 费用摘要卡片 */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
               <div className="grid grid-cols-4 gap-6">
