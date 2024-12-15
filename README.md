@@ -52,8 +52,9 @@ In the `frontend` directory, create or modify the `.env` file, setting the `VITE
 
 ```bash
 // 在frontend文件夹中创建一个名为.env的文件，填入下述内容
-VITE_HOST=your-local-ip-address  # Replace this with your actual IP address
-VITE_API_PORT=8081               # API server port 这个不用修改
+VITE_DEV_SERVER_HOST=10.129.95.11 # 输入服务器端IP
+VITE_HOST=10.129.95.11 # 输入客户端IP
+VITE_API_PORT=8081     # API server port 这个不用修改
 ```
 
 To find your local IP address, you can use:（先连接到校园网Portal，执行下面的命令，找到命令行ip中以10.129开头的IP）
@@ -70,7 +71,7 @@ In the `backend` folder, create a `.env` file using the template below, replacin
 ```bash
 // 在backend文件夹中创建一个名为.env的文件，填入下述内容
 JWT_SECRET_KEY=kjf9Kf!a7XzL3P@eG2laj9834JLKJfs!Fjlkjlskdf9234lkj // jwt密钥，替换为任意复杂随机字母数字符号串
-HOST=10.129.227.1 // 替换为与上面相同的IP
+HOST=10.129.227.1 // 替换为与上面服务器端相同的IP
 DB_HOST=localhost 
 DB_USER=username // 替换为你的database username
 DB_PASSWORD=pwd // 替换为你的database 密码
@@ -92,7 +93,7 @@ CREATE DATABASE hotel;
 
 - Import the SQL file to set up the database schema and data:
 
-1. 将根目录下的`/database/hotel.sql` 文件导入你的mysql数据库
+1. 将根目录下的`/database/teamwork.sql` 文件导入你的mysql数据库
 2. 使用以下命令导入数据库：
 
 ```bash
