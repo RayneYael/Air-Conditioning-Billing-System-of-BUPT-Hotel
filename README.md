@@ -109,10 +109,10 @@ mysql -u root -p hotel < /path/to/your/teamwork.sql
 
 Navigate to the `backend` directory and start the Express server:
 
-\```bash
+```bash
 cd backend
 npm run start
-\```
+```
 
 This will start the backend server on the IP address and port you configured in the `.env` file.
 
@@ -120,10 +120,10 @@ This will start the backend server on the IP address and port you configured in 
 
 Navigate to the `frontend` directory and start the Vite development server:
 
-\```bash
+```bash
 cd ../frontend
 npm run dev
-\```
+```
 
 This will start the frontend on the port you configured (`3000` by default) and make it available at the IP address specified in your `.env` file (e.g., `http://your-local-ip:3000`).
 
@@ -134,7 +134,7 @@ Open a web browser and navigate to `http://localhost:3000` to view the frontend,
 If you are accessing the application from a different device (e.g., your phone), make sure the device is connected to the same network and use your computer's local IP address (e.g., `http://192.168.1.x:3000`).<br />另一设备连接服务器电脑同一wifi，访问http：//你的服务器ip：3000 即可跨设备访问web页面
 
 ### 8. start scheduler
-取消server.js底部的// scheduler.start(pool)  注释，即可开启调度。
+取消server.js底部的// scheduler.start(pool)  注释，即可开启调度。<br><br>本调度算法将查询数据库中某一时间段的费用、房客记录进行费用计算，因此，每次运行调度算法时务必清空数据库中相关表格的数据，否则计算结果将与实时不符。
 
 ### Project Structure
 
