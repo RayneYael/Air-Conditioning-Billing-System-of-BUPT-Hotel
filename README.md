@@ -2,6 +2,21 @@
 
 This is a web application for managing BUPT HOTEL Fee operations, including features like user login, check-in management, and fee details. The project consists of a frontend built using React with Vite and a backend built using Express and MySQL.
 
+- 空调控制面板设计
+  ![image](https://github.com/user-attachments/assets/57d9ae78-a1ce-46a1-9136-4847535151e9)
+  ![image](https://github.com/user-attachments/assets/f595f99c-3d1b-4228-adba-074d944d8f1f)
+- 入住结账界面设计
+  ![image](https://github.com/user-attachments/assets/40c226b0-bf29-42b1-930a-1f684363b7f5)
+  ![image](https://github.com/user-attachments/assets/300e70e4-bfb3-4f5f-91c1-650fdf5e521b)
+  ![image](https://github.com/user-attachments/assets/d9514150-839b-4345-9e32-607e37bb7c34)
+- 费用详情表单设计
+  ![image](https://github.com/user-attachments/assets/90168838-2446-444a-92e7-78acf3ea64da)
+- 空调管理界面设计
+  ![image](https://github.com/user-attachments/assets/35e35701-3af2-46ce-968a-0c82a174bae1)
+  ![image](https://github.com/user-attachments/assets/01a3b8f4-04e4-4b6a-84b6-183241520acc)
+
+
+
 ## Prerequisites
 
 Before starting, make sure you have the following installed:
