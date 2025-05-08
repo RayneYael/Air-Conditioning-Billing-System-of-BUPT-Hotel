@@ -32,7 +32,7 @@ Before starting, make sure you have the following installed:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Endlesswinds/team-work.git
+git clone https://github.com/RayneYael/Air-Conditioning-Billing-System-of-BUPT-Hotel.git
 cd team-work
 ```
 
